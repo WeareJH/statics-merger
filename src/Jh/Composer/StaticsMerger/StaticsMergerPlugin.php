@@ -1,0 +1,51 @@
+<?php
+
+namespace Jh\Composer\StaticsMerger;
+
+use Composer\Composer;
+use Composer\EventDispatcher\EventSubscriberInterface;
+use Composer\IO\IOInterface;
+use Composer\Plugin\PluginInterface;
+use Composer\Plugin\PluginEvents;
+use Composer\Plugin\PreFileDownloadEvent;
+
+/**
+ * Composer Plugin for merging static assets with the Jh Magento Skeleton
+ * @author Michael Woodward <michael@wearejh.com>
+ */
+class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
+{
+    protected $composer;
+    protected $io;
+
+    public function activate(Composer $composer, IOInterface $io)
+    {
+        $this->composer = $composer;
+        $this->io = $io;
+    }
+
+    public static function getSubscribedEvents()
+    {
+        return array(
+            PluginEvents::PRE_FILE_DOWNLOAD => array(
+                array('onPreFileDownload', 0)
+            ),
+        );
+    }
+
+    public function onPreFileDownload(PreFileDownloadEvent $event)
+    {
+        $protocol = parse_url($event->getProcessedUrl(), PHP_URL_SCHEME);
+
+        if ($protocol === 's3') {
+            $awsClient = new AwsClient($this->io, $this->composer->getConfig());
+            $s3RemoteFilesystem = new S3RemoteFilesystem(
+                $this->io,
+                $this->composer->getConfig(),
+                $event->getRemoteFilesystem()->getOptions(),
+                $awsClient
+            );
+            $event->setRemoteFilesystem($s3RemoteFilesystem);
+        }
+    }
+}

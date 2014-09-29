@@ -1,0 +1,25 @@
+{
+  "name": "jhhello/statics-merger",
+  "type": "composer-plugin",
+  "description": "A composer plugin that symlinks static assets into the JH Magento Skeleton",
+  "keywords": ["jh", "statics", "merger", "statics-merger", "composer", "composer-plugin", "plugin"],
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Michael Woodward",
+      "email": "michae@wearejh.com",
+      "homepage": "http://www.wearejh.com"
+    }
+  ],
+  "autoload": {
+    "psr-0": {
+      "Jh\\Composer\\StaticsMerger\\": "src/"
+    }
+  },
+  "extra": {
+    "class": "Jh\\Composer\\StaticsMerger\\StaticsMergerPlugin"
+  },
+  "require": {
+    "composer-plugin-api": "1.0.0"
+  }
+}
