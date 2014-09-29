@@ -1,28 +1,49 @@
 {
-  "name": "jhhello/statics-merger",
-  "type": "composer-plugin",
-  "description": "A composer plugin that symlinks static assets into the JH Magento Skeleton",
-  "keywords": ["jh", "statics", "merger", "statics-merger", "composer", "composer-plugin", "plugin"],
-  "license": "MIT",
-  "authors": [
-    {
-      "name": "Michael Woodward",
-      "email": "michae@wearejh.com",
-      "homepage": "http://www.wearejh.com"
+    "name": "jhhello/statics-merger",
+    "type": "composer-plugin",
+    "description": "A composer plugin that symlinks static assets into the JH Magento Skeleton",
+    "keywords": [
+        "jh",
+        "statics",
+        "merger",
+        "statics-merger",
+        "composer",
+        "composer-plugin",
+        "plugin"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Michael Woodward",
+            "email": "michael@wearejh.com",
+            "homepage": "http://www.wearejh.com"
+        },
+        {
+            "name": "Aydin Hassan",
+            "email": "aydin@hotmail.co.uk",
+            "homepage": "http://www.wearejh.com"
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Jh\\StaticsMerger\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Jh\\StaticsMergerTest\\": "test/"
+        }
+    },
+    "extra": {
+        "class": "Jh\\StaticsMerger\\StaticsMergerPlugin"
+    },
+    "require": {
+        "composer-plugin-api": "1.0.0"
+    },
+    "require-dev": {
+        "composer/composer": "dev-master",
+        "phpunit/phpunit": "4.2.*",
+        "squizlabs/php_codesniffer": "1.5.*",
+        "php-vfs/php-vfs": "*@stable"
     }
-  ],
-  "autoload": {
-    "psr-0": {
-      "Jh\\Composer\\StaticsMerger\\": "src/"
-    }
-  },
-  "extra": {
-    "class": "Jh\\Composer\\StaticsMerger\\StaticsMergerPlugin"
-  },
-  "require": {
-    "composer-plugin-api": "1.0.0"
-  },
-  "require-dev": {
-    "composer/composer": "dev-master"
-  }
 }
