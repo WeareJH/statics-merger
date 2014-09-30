@@ -169,6 +169,56 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $package->setExtra($extra);
     }
 
+    public function addStandardFilesNoDest(PackageInterface $package)
+    {
+        $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
+        mkdir($packageLocation . "/assets/images/catalog", 0777, true);
+        touch($packageLocation . "/assets/images/catalog/image1.jpg");
+        touch($packageLocation . "/assets/images/catalog/image2.jpg");
+        touch($packageLocation . "/assets/image3.jpg");
+
+        $extra = array_merge(
+            $package->getExtra(),
+            [
+                'files' => [
+                    [
+                        'src'   => 'assets/images/catalog',
+                        'dest'  => ''
+                    ],
+                    [
+                        'src'   => 'assets/image3.jpg',
+                        'dest'  => ''
+                    ]
+                ]
+            ]
+        );
+
+        $package->setExtra($extra);
+    }
+
+    public function addGlobsWithDest(PackageInterface $package)
+    {
+        $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
+        mkdir($packageLocation . "/assets/images/catalog", 0777, true);
+        touch($packageLocation . "/assets/images/catalog/image1.jpg");
+        touch($packageLocation . "/assets/images/catalog/image2.jpg");
+        touch($packageLocation . "/assets/images/catalog/picture1.jpg");
+
+        $extra = array_merge(
+            $package->getExtra(),
+            [
+                'files' => [
+                    [
+                        'src'   => 'assets/images/catalog/image*',
+                        'dest'  => 'images'
+                    ]
+                ]
+            ]
+        );
+
+        $package->setExtra($extra);
+    }
+
     public function testErrorIsPrintedIfNoStaticMaps()
     {
         $this->composer->setPackage($this->createRootPackage());
@@ -213,7 +263,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
     }
 
-    public function testFileGlobAreAllCorrectlySymLinked()
+    public function testFileGlobAreAllCorrectlySymLinkedToRoot()
     {
         $this->composer->setPackage($this->createRootPackageWithOneMap());
         $this->localRepository->addPackage(
@@ -233,6 +283,28 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2"));
     }
 
+    public function testFileGlobAreAllCorrectlySymLinkedWithSetDest()
+    {
+        $this->composer->setPackage($this->createRootPackageWithOneMap());
+
+        $package = $this->createStaticPackage();
+
+        $this->addGlobsWithDest($package);
+        $this->localRepository->addPackage($package);
+
+        $event = new CommandEvent('event', $this->composer, $this->io);
+        $this->plugin->symlinkStatics($event);
+
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images");
+        $this->assertTrue(is_dir("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image1.jpg");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image2.jpg");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image1.jpg"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image2.jpg"));
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/picture1.jpg");
+    }
+
     public function testStandardFilesAreAllCorrectlySymLinked()
     {
         $this->composer->setPackage($this->createRootPackageWithOneMap());
@@ -248,6 +320,64 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
         $this->assertTrue(file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image1.jpg"));
         $this->assertTrue(file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image2.jpg"));
+    }
+
+    public function testCurrentSymlinksAreUnlinked()
+    {
+        $this->composer->setPackage($this->createRootPackageWithOneMap());
+        $package = $this->createStaticPackage('some/static', [], true, false, true);
+        $this->localRepository->addPackage($package);
+
+        $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
+        mkdir($packageLocation . '/assets/testdir');
+        mkdir("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/", 0777, true);
+
+        symlink(
+            $packageLocation . '/assets/testdir',
+            "{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"
+        );
+
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
+        $this->assertEquals(
+            $packageLocation . '/assets/testdir',
+            readLink("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog")
+        );
+
+        $event = new CommandEvent('event', $this->composer, $this->io);
+        $this->plugin->symlinkStatics($event);
+
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
+        $this->assertEquals(
+            $packageLocation . "/assets/images/catalog",
+            readLink("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog")
+        );
+    }
+
+    public function testFilesAndFolderErrorWithoutDestinationSet()
+    {
+        $this->composer->setPackage($this->createRootPackageWithOneMap());
+
+        $package = $this->createStaticPackage();
+
+        $this->addStandardFilesNoDest($package);
+        $this->localRepository->addPackage($package);
+
+        $message = '<error>Full path is required for: "assets/images/catalog" </error>';
+
+        $this->io
+            ->expects($this->once())
+            ->method('write')
+            ->with($message);
+
+        $event = new CommandEvent('event', $this->composer, $this->io);
+        $this->plugin->symlinkStatics($event);
+
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image1.jpg");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image2.jpg");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image3.jpg");
     }
 
     public function testAssetSymLinkFailsIfAlreadyExistButNotSymLink()

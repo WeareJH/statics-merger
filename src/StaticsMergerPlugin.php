@@ -139,7 +139,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
             // Process any files from package
             if (isset($packageExtra['files'])) {
-                $this->processExtraFiles($packageExtra['files'], $packageSource, $destinationTheme);
+                $this->processExtraFiles($packageSource, $destinationTheme, $packageExtra['files']);
             }
         }
     }
@@ -147,7 +147,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     /**
      * @param array $files
      */
-    public function processExtraFiles($files = [], $packageSource, $destinationTheme)
+    public function processExtraFiles($packageSource, $destinationTheme, $files = [])
     {
         foreach ($files as $file) {
             // Ensure we have correct json
@@ -157,24 +157,29 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
                 // Check if it's a glob
                 if (strpos($src, '*') !== false) {
-                    foreach (glob($src) as $globFile) {
+                    $files = array_filter(glob($src), 'is_file');
+                    foreach ($files as $globFile) {
                         //strip the full path
                         //and just get path relative to package
                         $fileSource = str_replace(sprintf("%s/", $packageSource), "", $globFile);
 
                         if ($dest) {
-                            $dest = sprintf("%s/%s", rtrim($dest, "/"), $fileSource);
+                            $dest = sprintf("%s/%s", rtrim($dest, "/"), basename($fileSource));
                         } else {
                             $dest = $fileSource;
                         }
 
                         $this->processSymlink($packageSource, $fileSource, $destinationTheme, $dest);
-                        $dest = '';
+                        $dest = $file['dest'];
                     }
                 } else {
                     if (!$dest) {
-                        $dest = $file['src'];
+                        $this->io->write(
+                            sprintf('<error>Full path is required for: "%s" </error>', $file['src'])
+                        );
+                        return false;
                     }
+
                     $this->processSymlink($packageSource, $file['src'], $destinationTheme, $dest);
                 }
             }
