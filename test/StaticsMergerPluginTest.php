@@ -3,6 +3,7 @@
 namespace Jh\StaticsMergerTest;
 
 use Composer\Package\Package;
+use Composer\Package\PackageInterface;
 use Composer\Package\RootPackage;
 use Composer\Repository\ArrayRepository;
 use Composer\Repository\RepositoryManager;
@@ -57,7 +58,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
     private function createFolderStructure()
     {
-        $sysDir = sys_get_temp_dir();
+        $sysDir = realpath(sys_get_temp_dir());
 
         mkdir($sysDir . "/static-merge-test/htdocs", 0777, true);
         mkdir($sysDir . "/static-merge-test/vendor");
@@ -90,25 +91,82 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         return $package;
     }
 
-    public function createStaticPackage($name = 'some/static', $extra = [], $createAssets = true)
-    {
+    public function createStaticPackage(
+        $name = 'some/static',
+        $extra = [],
+        $createAssets = true,
+        $addGlob = false,
+        $addFiles = false
+    ) {
         $package = new Package($name, "1.0.0", $name);
         $package->setExtra($extra);
         $package->setType('static');
 
         if ($createAssets) {
-            $this->createStaticPackageAssets($name);
+            $this->createStaticPackageAssets($package);
+        }
+
+        if ($addGlob) {
+            $this->addGlobFiles($package);
+        }
+
+        if ($addFiles) {
+            $this->addStandardFiles($package);
         }
 
         return $package;
     }
 
-    public function createStaticPackageAssets($name)
+    public function createStaticPackageAssets(PackageInterface $package)
     {
-        $packageLocation = $this->projectRoot . "/vendor/" . $name;
+        $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
         mkdir($packageLocation . "/assets", 0777, true);
         touch($packageLocation . "/assets/asset1.jpg");
         touch($packageLocation . "/assets/asset2.jpg");
+    }
+
+    public function addGlobFiles(PackageInterface $package)
+    {
+        $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
+        touch($packageLocation . "/favicon1");
+        touch($packageLocation . "/favicon3");
+        touch($packageLocation . "/favicon2");
+
+        $extra = array_merge(
+            $package->getExtra(),
+            [
+                'files' => [
+                    [
+                        'src'   => 'favicon*',
+                        'dest'  => ''
+                    ]
+                ]
+            ]
+        );
+
+        $package->setExtra($extra);
+    }
+
+    public function addStandardFiles(PackageInterface $package)
+    {
+        $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
+        mkdir($packageLocation . "/assets/images/catalog", 0777, true);
+        touch($packageLocation . "/assets/images/catalog/image1.jpg");
+        touch($packageLocation . "/assets/images/catalog/image2.jpg");
+
+        $extra = array_merge(
+            $package->getExtra(),
+            [
+                'files' => [
+                    [
+                        'src'   => 'assets/images/catalog',
+                        'dest'  => 'images/catalog'
+                    ]
+                ]
+            ]
+        );
+
+        $package->setExtra($extra);
     }
 
     public function testErrorIsPrintedIfNoStaticMaps()
@@ -152,11 +210,45 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
 
         $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
         $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
     }
 
+    public function testFileGlobAreAllCorrectlySymLinked()
+    {
+        $this->composer->setPackage($this->createRootPackageWithOneMap());
+        $this->localRepository->addPackage(
+            $this->createStaticPackage('some/static', [], true, true)
+        );
 
+        $event = new CommandEvent('event', $this->composer, $this->io);
+        $this->plugin->symlinkStatics($event);
+
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon1");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon3");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon1"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2"));
+    }
+
+    public function testStandardFilesAreAllCorrectlySymLinked()
+    {
+        $this->composer->setPackage($this->createRootPackageWithOneMap());
+        $this->localRepository->addPackage(
+            $this->createStaticPackage('some/static', [], true, false, true)
+        );
+
+        $event = new CommandEvent('event', $this->composer, $this->io);
+        $this->plugin->symlinkStatics($event);
+
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
+        $this->assertTrue(file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image1.jpg"));
+        $this->assertTrue(file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image2.jpg"));
+    }
 
     public function testAssetSymLinkFailsIfAlreadyExistButNotSymLink()
     {

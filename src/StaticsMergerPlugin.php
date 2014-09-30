@@ -122,50 +122,60 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
             $packageMap         = $staticMaps[$package->getName()];
             $packageSource      = $this->getInstallPath($package);
-            $destinationPath    = sprintf('%s/%s/skin/frontend/%s', getcwd(), $magentoRootDir, $packageMap);
+            $destinationTheme   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $magentoRootDir, $packageMap);
 
             // Add slash to paths
-            $packageSource      = rtrim($packageSource, "/") . "/";
-            $destinationPath    = rtrim($destinationPath, "/") . "/";
+            $packageSource      = rtrim($packageSource, "/");
+            $destinationTheme   = rtrim($destinationTheme, "/");
 
-            if (!file_exists($destinationPath)) {
-                // Create destination path
-                mkdir($destinationPath, 0775, true);
-            }
+            // If theme doesn't exist - Create it
+            $this->filesystem->ensureDirectoryExists($destinationTheme);
 
             // Process assets dir first
-            $this->processSymlink($packageSource, 'assets', $destinationPath . 'assets');
+            $this->processSymlink($packageSource, 'assets', $destinationTheme, 'assets');
 
             // Process any globs from package
             $packageExtra = $package->getExtra();
 
             // Process any files from package
             if (isset($packageExtra['files'])) {
-                $files = $packageExtra['files'];
+                $this->processExtraFiles($packageExtra['files'], $packageSource, $destinationTheme);
+            }
+        }
+    }
 
-                foreach ($files as $file) {
-                    // Ensure we have correct json
-                    if (isset($file['src']) && isset($file['dest'])) {
-                        $src    = $file['src'];
-                        $dest   = $file['dest'];
+    /**
+     * @param array $files
+     */
+    public function processExtraFiles($files = [], $packageSource, $destinationTheme)
+    {
+        foreach ($files as $file) {
+            // Ensure we have correct json
+            if (isset($file['src']) && isset($file['dest'])) {
+                $src    = sprintf("%s/%s", $packageSource, $file['src']);
+                $dest   = $file['dest'];
 
-                        // Check if it's a glob
-                        if (strpos($src, '*') !== false) {
-                            foreach (glob($packageSource . $src) as $globFile) {
-                                $this->processSymlink(
-                                    $packageSource,
-                                    $globFile,
-                                    sprintf('%s%s/%s', $destinationPath, $dest, basename($globFile))
-                                );
-                            }
+                // Check if it's a glob
+                if (strpos($src, '*') !== false) {
+                    foreach (glob($src) as $globFile) {
+                        //strip the full path
+                        //and just get path relative to package
+                        $fileSource = str_replace(sprintf("%s/", $packageSource), "", $globFile);
+
+                        if ($dest) {
+                            $dest = sprintf("%s/%s", rtrim($dest, "/"), $fileSource);
                         } else {
-                            $this->processSymlink(
-                                $packageSource,
-                                $src,
-                                sprintf('%s%s/%s', $destinationPath, $dest, basename($src))
-                            );
+                            $dest = $fileSource;
                         }
+
+                        $this->processSymlink($packageSource, $fileSource, $destinationTheme, $dest);
+                        $dest = '';
                     }
+                } else {
+                    if (!$dest) {
+                        $dest = $file['src'];
+                    }
+                    $this->processSymlink($packageSource, $file['src'], $destinationTheme, $dest);
                 }
             }
         }
@@ -175,11 +185,13 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      * Process symlink with checks given source and destination paths
      * @param $packageSrc
      * @param string $relativeSourcePath
-     * @param string $destinationPath
+     * @param $destinationTheme
+     * @param string $relativeDestinationPath
      */
-    public function processSymlink($packageSrc, $relativeSourcePath, $destinationPath)
+    public function processSymlink($packageSrc, $relativeSourcePath, $destinationTheme, $relativeDestinationPath)
     {
-        $sourcePath = sprintf("%s%s", $packageSrc, $relativeSourcePath);
+        $sourcePath         = sprintf("%s/%s", $packageSrc, $relativeSourcePath);
+        $destinationPath    = sprintf("%s/%s", $destinationTheme, $relativeDestinationPath);
 
         if (!file_exists($sourcePath)) {
             $this->io->write(
