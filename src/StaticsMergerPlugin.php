@@ -114,7 +114,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             $this->io->write("<info>Magento root dir not defined</info>");
             return false;
         }
-        $magentoRootDir = $extra['magento-root-dir'];
+        $magentoRootDir = rtrim($extra['magento-root-dir'], '/');
         foreach ($packages as $package) {
             if ($package->getType() !== static::PACKAGE_TYPE || !isset($staticMaps[$package->getName()])) {
                 continue;
@@ -145,7 +145,10 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
+     * @param string $packageSource
+     * @param string $destinationTheme
      * @param array $files
+     * @return bool|void
      */
     public function processExtraFiles($packageSource, $destinationTheme, $files = [])
     {
@@ -188,9 +191,9 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Process symlink with checks given source and destination paths
-     * @param $packageSrc
+     * @param string $packageSrc
      * @param string $relativeSourcePath
-     * @param $destinationTheme
+     * @param string $destinationTheme
      * @param string $relativeDestinationPath
      */
     public function processSymlink($packageSrc, $relativeSourcePath, $destinationTheme, $relativeDestinationPath)
