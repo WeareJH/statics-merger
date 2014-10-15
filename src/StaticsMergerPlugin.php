@@ -150,7 +150,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      * @param array $files
      * @return bool|void
      */
-    public function processExtraFiles($packageSource, $destinationTheme, $files = [])
+    public function processExtraFiles($packageSource, $destinationTheme, $files = array())
     {
         foreach ($files as $file) {
             // Ensure we have correct json
