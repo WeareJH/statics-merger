@@ -96,6 +96,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     /**
      * Symlink the static repositories
      * @param CommandEvent $event
+     * @return bool|void
      */
     public function symlinkStatics(CommandEvent $event)
     {
@@ -131,15 +132,16 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             // If theme doesn't exist - Create it
             $this->filesystem->ensureDirectoryExists($destinationTheme);
 
-            // Process assets dir first
-            $this->processSymlink($packageSource, 'assets', $destinationTheme, 'assets');
-
-            // Process any globs from package
+            // Get extra file data for file paths
             $packageExtra = $package->getExtra();
 
             // Process any files from package
             if (isset($packageExtra['files'])) {
                 $this->processExtraFiles($packageSource, $destinationTheme, $packageExtra['files']);
+            } else {
+                $this->io->write(
+                    sprintf('<error>%s requires at least one file mapping, has none!<error>', $package->getPrettyName())
+                );
             }
         }
     }
@@ -195,6 +197,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      * @param string $relativeSourcePath
      * @param string $destinationTheme
      * @param string $relativeDestinationPath
+     * @return bool|void
      */
     public function processSymlink($packageSrc, $relativeSourcePath, $destinationTheme, $relativeDestinationPath)
     {
