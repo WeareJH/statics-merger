@@ -13,6 +13,7 @@ namespace Jh\StaticsMergerTest {
     use Composer\Composer;
     use Composer\Config;
     use Composer\Script\ScriptEvents;
+    use ReflectionObject;
 
     /**
      * Class StaticsMergerPluginTest
@@ -32,9 +33,8 @@ namespace Jh\StaticsMergerTest {
 
         public function setUp()
         {
-            ini_set('display_errors', 1);
-            $this->plugin = new StaticsMergerPlugin();
-            $this->config = new Config();
+            $this->plugin   = new StaticsMergerPlugin();
+            $this->config   = new Config();
             $this->composer = new Composer();
             $this->composer->setConfig($this->config);
 
@@ -48,52 +48,117 @@ namespace Jh\StaticsMergerTest {
                 ),
             ));
 
-            $this->io = $this->getMock('Composer\IO\IOInterface');
-            $this->repoManager = new RepositoryManager($this->io, $this->config);
+            $this->io               = $this->getMock('Composer\IO\IOInterface');
+            $this->repoManager      = new RepositoryManager($this->io, $this->config);
+            $this->localRepository  = new WritableArrayRepository();
             $this->composer->setRepositoryManager($this->repoManager);
-            $this->localRepository = new WritableArrayRepository();
             $this->repoManager->setLocalRepository($this->localRepository);
-            $this->plugin->activate($this->composer, $this->io);
         }
 
+        public function tearDown()
+        {
+            $dir = sys_get_temp_dir() . "/static-merge-test";
+
+            $files = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator(
+                    $dir,
+                    \RecursiveDirectoryIterator::SKIP_DOTS
+                ),
+                \RecursiveIteratorIterator::CHILD_FIRST
+            );
+
+            foreach ($files as $file) {
+
+                if ($file->isLink() || !$file->isDir()) {
+                    unlink($file->getPathname());
+                } else {
+                    rmdir($file->getPathname());
+                }
+            }
+
+            rmdir($dir);
+        }
+
+        /**
+         * @return string
+         */
         private function createFolderStructure()
         {
             $sysDir = realpath(sys_get_temp_dir());
 
-            mkdir($sysDir . "/static-merge-test/htdocs", 0777, true);
-            mkdir($sysDir . "/static-merge-test/vendor");
-            mkdir($sysDir . "/static-merge-test/vendor/bin");
+            $htdocs = $sysDir . "/static-merge-test/htdocs";
+
+            if (!is_dir($htdocs)) {
+                mkdir($htdocs, 0777, true);
+            }
+
+            $vendor = $sysDir . "/static-merge-test/vendor";
+            if (!is_dir($vendor)) {
+                mkdir($vendor);
+            }
+
+            $bin = $sysDir . "/static-merge-test/vendor/bin";
+            if (!is_dir($bin)) {
+                mkdir($bin);
+            }
+
             $this->projectRoot = $sysDir . "/static-merge-test";
 
             return $this->projectRoot;
         }
 
         /**
+         * @param $includeMageDir
          * @return RootPackage
          */
-        protected function createRootPackageWithOneMap()
-        {
-            $package = $this->createRootPackage();
-
-            $extra = array(
-                'magento-root-dir' => 'htdocs',
-                'static-map'       => array(
-                    'some/static' => 'package/theme'
-                ),
-            );
-
-            $package->setExtra($extra);
-
-            return $package;
-        }
-
-        public function createRootPackage()
+        public function createRootPackage($includeMageDir = true)
         {
             $package = new RootPackage("root/package", "1.0.0", "root/package");
 
+            if ($includeMageDir) {
+                $extra = array(
+                    'magento-root-dir' => 'htdocs'
+                );
+
+                $package->setExtra($extra);
+            }
+
             return $package;
         }
 
+        public function activatePlugin()
+        {
+            $this->plugin->activate($this->composer, $this->io);
+        }
+
+        protected function addSingleStaticMap()
+        {
+            $extra = array_merge_recursive($this->composer->getPackage()->getExtra(), array(
+                'static-map'       => array(
+                    'some/static' => 'package/theme'
+                ),
+            ));
+
+            $this->composer->getPackage()->setExtra($extra);
+        }
+
+        public function createAndActivatePackage($includeMageDir = true, $addSingleMap = true)
+        {
+            $this->composer->setPackage($this->createRootPackage($includeMageDir));
+            if ($addSingleMap) {
+                $this->addSingleStaticMap();
+            }
+            $this->activatePlugin();
+        }
+
+        /**
+         * @param string $name
+         * @param array  $extra
+         * @param bool   $createAssets
+         * @param bool   $addGlob
+         * @param bool   $addFiles
+         * @return Package
+         */
         public function createStaticPackage(
             $name = 'some/static',
             $extra = array(),
@@ -245,36 +310,29 @@ namespace Jh\StaticsMergerTest {
                 ->method('write')
                 ->with('<info>No static maps defined</info>');
 
-            $event = new CommandEvent('event', $this->composer, $this->io);
-            $this->plugin->symlinkStatics($event);
+            $this->activatePlugin();
         }
 
         public function testErrorIsPrintedIfMagentoRootNotSet()
         {
-            $package = $this->createRootPackageWithOneMap();
-            $extra = $package->getExtra();
-            unset($extra['magento-root-dir']);
-            $package->setExtra($extra);
-
-            $this->composer->setPackage($package);
+            $this->composer->setPackage($this->createRootPackage(false));
+            $this->addSingleStaticMap();
 
             $this->io
                 ->expects($this->once())
                 ->method('write')
                 ->with('<info>Magento root dir not defined</info>');
 
-            $event = new CommandEvent('event', $this->composer, $this->io);
-            $this->plugin->symlinkStatics($event);
+            $this->activatePlugin();
         }
 
         public function testSymLinkStaticsCorrectlySymLinksStaticFiles()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $event = new CommandEvent('event', $this->composer, $this->io);
 
             $this->localRepository->addPackage($this->createStaticPackage());
             $this->plugin->symlinkStatics($event);
-
 
             $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
@@ -282,7 +340,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testFileGlobAreAllCorrectlySymLinkedToRoot()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $this->localRepository->addPackage(
                 $this->createStaticPackage('some/static', array(), true, true)
             );
@@ -301,7 +359,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testFileGlobAreAllCorrectlySymLinkedWithSetDest()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
 
             $package = $this->createStaticPackage();
 
@@ -323,7 +381,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testStandardFilesAreAllCorrectlySymLinked()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $this->localRepository->addPackage(
                 $this->createStaticPackage('some/static', array(), true, false, true)
             );
@@ -340,7 +398,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testCurrentSymlinksAreUnlinked()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $package = $this->createStaticPackage('some/static', array(), true, false, true);
             $this->localRepository->addPackage($package);
 
@@ -373,7 +431,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testFilesAndFolderErrorWithoutDestinationSet()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
 
             $package = $this->createStaticPackage();
 
@@ -398,7 +456,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testAssetSymLinkFailsIfAlreadyExistButNotSymLink()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $event = new CommandEvent('event', $this->composer, $this->io);
 
             $this->localRepository->addPackage($this->createStaticPackage());
@@ -419,7 +477,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testErrorIsReportedIfStaticPackageMissingSpecifiedSource()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $event = new CommandEvent('event', $this->composer, $this->io);
 
             $this->localRepository->addPackage($this->createStaticPackage('some/static', array(), false));
@@ -436,7 +494,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testSkipsNonStaticPackages()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $nonStaticPackage = $this->createStaticPackage();
             $nonStaticPackage->setType('not-a-static');
             $this->localRepository->addPackage($nonStaticPackage);
@@ -457,7 +515,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testWritesErrorWithNoFilePaths()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $emptyPathPackage = $this->createStaticPackage();
             $emptyPathPackage->setExtra(array());
             $this->localRepository->addPackage($emptyPathPackage);
@@ -479,10 +537,16 @@ namespace Jh\StaticsMergerTest {
         public function testSubscribedToExpectedComposerEvents()
         {
             $this->assertSame(array(
+                ScriptEvents::PRE_INSTALL_CMD => array(
+                    array('staticsCleanup', 0)
+                ),
+                ScriptEvents::PRE_UPDATE_CMD => array(
+                    array('staticsCleanup', 0)
+                ),
                 ScriptEvents::POST_INSTALL_CMD => array(
                     array('symlinkStatics', 0)
                 ),
-                ScriptEvents::POST_UPDATE_CMD  => array(
+                ScriptEvents::POST_UPDATE_CMD => array(
                     array('symlinkStatics', 0)
                 )
             ), $this->plugin->getSubscribedEvents());
@@ -490,7 +554,7 @@ namespace Jh\StaticsMergerTest {
 
         public function testSymlinkFail()
         {
-            $this->composer->setPackage($this->createRootPackageWithOneMap());
+            $this->createAndActivatePackage();
             $this->localRepository->addPackage($this->createStaticPackage());
 
             // Set symlink exception flag for function override
@@ -510,28 +574,61 @@ namespace Jh\StaticsMergerTest {
             static::$throwSymlinkException = false;
         }
 
-        public function tearDown()
+        public function testStaticsCleanupCorrectlyRemovesDirs()
         {
-            $dir = sys_get_temp_dir() . "/static-merge-test";
+            $this->createAndActivatePackage();
+            $event = new CommandEvent('event', $this->composer, $this->io);
 
-            $files = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator(
-                    $dir,
-                    \RecursiveDirectoryIterator::SKIP_DOTS
-                ),
-                \RecursiveIteratorIterator::CHILD_FIRST
-            );
+            $this->localRepository->addPackage($this->createStaticPackage());
+            $this->plugin->symlinkStatics($event);
 
-            foreach ($files as $file) {
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
 
-                if ($file->isLink() || !$file->isDir()) {
-                    unlink($file->getPathname());
-                } else {
-                    rmdir($file->getPathname());
-                }
-            }
+            $this->plugin->staticsCleanup($event);
 
-            rmdir($dir);
+            $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package");
+        }
+
+        public function testStaticsCleanupOutputOnException()
+        {
+            ini_set('display_errors', 1);
+            $this->createAndActivatePackage();
+            $event = new CommandEvent('event', $this->composer, $this->io);
+
+            $this->localRepository->addPackage($this->createStaticPackage());
+            $this->plugin->symlinkStatics($event);
+
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+
+            $filesystem = $this->getMockBuilder('Composer\Util\Filesystem')
+                ->setMethods(array('removeDirectory'))
+                ->getMock();
+            
+            $filesystem
+                ->expects($this->once())
+                ->method('removeDirectory')
+                ->will($this->throwException(new \RuntimeException()));
+
+            $this->io
+                ->expects($this->once())
+                ->method('write')
+                ->with(sprintf(
+                    "<error>Failed to remove some/static from %s/htdocs/skin/frontend/package</error>",
+                    realpath(sys_get_temp_dir()) . "/static-merge-test"
+                ));
+
+            $refObject   = new ReflectionObject($this->plugin);
+            $refProperty = $refObject->getProperty('filesystem');
+            $refProperty->setAccessible(true);
+            $refProperty->setValue($this->plugin, $filesystem);
+
+            $this->plugin->staticsCleanup($event);
+
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
         }
     }
 }

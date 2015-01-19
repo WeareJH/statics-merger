@@ -42,8 +42,7 @@
     },
     "require-dev": {
         "composer/composer": "dev-master",
-        "phpunit/phpunit": "4.2.*",
-        "squizlabs/php_codesniffer": "1.5.*",
-        "php-vfs/php-vfs": "*@stable"
+        "phpunit/phpunit": "~4.4",
+        "squizlabs/php_codesniffer": "1.5.*"
     }
 }

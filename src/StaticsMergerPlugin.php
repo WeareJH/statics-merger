@@ -282,7 +282,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
             try {
                 $this->filesystem->removeDirectory(rtrim($themeMap, "/"));
-            } catch (\ErrorException $ex) {
+            } catch (\RuntimeException $ex) {
                 $this->io->write(
                     sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeMap)
                 );
