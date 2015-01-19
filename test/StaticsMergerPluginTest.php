@@ -32,6 +32,7 @@ namespace Jh\StaticsMergerTest {
 
         public function setUp()
         {
+            ini_set('display_errors', 1);
             $this->plugin = new StaticsMergerPlugin();
             $this->config = new Config();
             $this->composer = new Composer();
@@ -535,9 +536,9 @@ namespace Jh\StaticsMergerTest {
     }
 }
 
-// Overide the Symlink function
-// within the StatisMerger namespace
-// Allows testing the expection handling
+// Override the Symlink function
+// within the StaticsMerger namespace
+// Allows testing the exception handling
 namespace Jh\StaticsMerger {
 
     use Jh\StaticsMergerTest\StaticsMergerPluginTest;

@@ -43,8 +43,24 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     protected $vendorDir;
 
     /**
+     * @var array
+     */
+    protected $packageExtra = array();
+
+    /**
+     * @var array
+     */
+    protected $staticMaps = array();
+
+    /**
+     * @var string
+     */
+    protected $mageDir;
+
+    /**
      * @param Composer $composer
      * @param IOInterface $io
+     * @return bool|void
      */
     public function activate(Composer $composer, IOInterface $io)
     {
@@ -52,6 +68,20 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         $this->io           = $io;
         $this->vendorDir    = rtrim($composer->getConfig()->get('vendor-dir'), '/');
         $this->filesystem   = new Filesystem();
+        $this->packageExtra = $this->composer->getPackage()->getExtra();
+
+        if (!isset($this->packageExtra['static-map'])) {
+            $this->io->write("<info>No static maps defined</info>");
+            return false;
+        }
+
+        if (!isset($this->packageExtra['magento-root-dir'])) {
+            $this->io->write("<info>Magento root dir not defined</info>");
+            return false;
+        }
+
+        $this->staticMaps   = $this->packageExtra['static-map'];
+        $this->mageDir      = rtrim($this->packageExtra['magento-root-dir'], '/');
     }
 
     /**
@@ -84,6 +114,12 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     public static function getSubscribedEvents()
     {
         return array(
+            ScriptEvents::PRE_INSTALL_CMD => array(
+                array('staticsCleanup', 0)
+            ),
+            ScriptEvents::PRE_UPDATE_CMD => array(
+                array('staticsCleanup', 0)
+            ),
             ScriptEvents::POST_INSTALL_CMD => array(
                 array('symlinkStatics', 0)
             ),
@@ -100,30 +136,10 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      */
     public function symlinkStatics(CommandEvent $event)
     {
-        $rootPackage    = $this->composer->getPackage();
-        $packages       = $this->composer->getRepositoryManager()->getLocalRepository()->getPackages();
-        $extra          = $rootPackage->getExtra();
-
-        if (!isset($extra['static-map'])) {
-            $this->io->write("<info>No static maps defined</info>");
-            return false;
-        }
-
-
-        $staticMaps = $extra['static-map'];
-        if (!isset($extra['magento-root-dir'])) {
-            $this->io->write("<info>Magento root dir not defined</info>");
-            return false;
-        }
-        $magentoRootDir = rtrim($extra['magento-root-dir'], '/');
-        foreach ($packages as $package) {
-            if ($package->getType() !== static::PACKAGE_TYPE || !isset($staticMaps[$package->getName()])) {
-                continue;
-            }
-
-            $packageMap         = $staticMaps[$package->getName()];
+        foreach ($this->getStaticPackages() as $package) {
+            $packageMap         = $this->staticMaps[$package->getName()];
             $packageSource      = $this->getInstallPath($package);
-            $destinationTheme   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $magentoRootDir, $packageMap);
+            $destinationTheme   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $packageMap);
 
             // Add slash to paths
             $packageSource      = rtrim($packageSource, "/");
@@ -238,6 +254,39 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             $this->io->write(
                 "<error>Failed to symlink $sourcePath to $destinationPath</error>"
             );
+        }
+    }
+
+    /**
+     * Get filtered packages array
+     * @return array
+     */
+    public function getStaticPackages()
+    {
+        $packages = $this->composer->getRepositoryManager()->getLocalRepository()->getPackages();
+
+        return array_filter($packages, function ($package) {
+            return $package->getType() == static::PACKAGE_TYPE && isset($this->staticMaps[$package->getName()]);
+        });
+    }
+
+    /**
+     * @param CommandEvent $event
+     * @return bool|void
+     */
+    public function staticsCleanup(CommandEvent $event)
+    {
+        foreach ($this->getStaticPackages() as $package) {
+            $packageMap = explode('/', $this->staticMaps[$package->getName()]);
+            $themeMap   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $packageMap[0]);
+
+            try {
+                $this->filesystem->removeDirectory(rtrim($themeMap, "/"));
+            } catch (\ErrorException $ex) {
+                $this->io->write(
+                    sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeMap)
+                );
+            }
         }
     }
 }
