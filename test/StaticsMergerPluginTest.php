@@ -593,7 +593,6 @@ namespace Jh\StaticsMergerTest {
 
         public function testStaticsCleanupOutputOnException()
         {
-            ini_set('display_errors', 1);
             $this->createAndActivatePackage();
             $event = new CommandEvent('event', $this->composer, $this->io);
 
