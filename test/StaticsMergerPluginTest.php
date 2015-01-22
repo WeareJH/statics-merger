@@ -199,6 +199,10 @@ namespace Jh\StaticsMergerTest {
             touch($packageLocation . "/favicon1");
             touch($packageLocation . "/favicon3");
             touch($packageLocation . "/favicon2");
+            mkdir($packageLocation . "/assets/images/catalog", 0777, true);
+            touch($packageLocation . "/assets/images/catalog/image1.jpg");
+            touch($packageLocation . "/assets/images/catalog/image2.jpg");
+            touch($packageLocation . "/assets/images/catalog/picture1.jpg");
 
             $rootPackageExtra = array_merge_recursive($this->composer->getPackage()->getExtra(), array(
                 'static-map' => array(
@@ -206,7 +210,7 @@ namespace Jh\StaticsMergerTest {
                         $theme => array(
                             array(
                                 'src'  => 'favicon*',
-                                'dest' => ''
+                                'dest' => '/'
                             )
                         )
                     )
@@ -336,10 +340,27 @@ namespace Jh\StaticsMergerTest {
                 $this->createStaticPackage('some/static', 'package/theme', array(), true, true)
             );
 
+            // Add extra glob mappings
+            $rootPackageExtra = array_merge_recursive($this->composer->getPackage()->getExtra(), array(
+                'static-map' => array(
+                    'some/static' => array(
+                        'package/theme' => array(
+                            array(
+                                'src'  => 'assets/images/catalog/image*',
+                                'dest' => '/'
+                            )
+                        )
+                    )
+                ),
+            ));
+
+            $this->composer->getPackage()->setExtra($rootPackageExtra);
+
             $event = new CommandEvent('event', $this->composer, $this->io);
             $this->activatePlugin();
             $this->plugin->symlinkStatics($event);
 
+            // Favicons linked from root
             $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
             $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon1");
             $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2");
@@ -347,6 +368,13 @@ namespace Jh\StaticsMergerTest {
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon1"));
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2"));
+
+            // Images linked from image dir
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image1.jpg");
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image2.jpg");
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image1.jpg"));
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image2.jpg"));
+            $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/picture1.jpg");
         }
 
         public function testFileGlobAreAllCorrectlySymLinkedWithSetDest()
@@ -417,10 +445,6 @@ namespace Jh\StaticsMergerTest {
 
             $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
-            $this->assertEquals(
-                $packageLocation . "/assets/images/catalog",
-                readLink("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog")
-            );
         }
 
         public function testFilesAndFolderErrorWithoutDestinationSet()
@@ -783,6 +807,29 @@ namespace Jh\StaticsMergerTest {
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog"));
             $this->assertTrue(file_exists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog/image1.jpg"));
             $this->assertTrue(file_exists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog/image2.jpg"));
+        }
+
+        /**
+         * @param $from
+         * @param $to
+         * @param $exp
+         * @dataProvider relativePathTestDataProvider
+         */
+        public function testgetRelativeSyminkPathProvidesCorrectPath($from, $to, $exp)
+        {
+            $this->assertSame($exp, $this->plugin->getRelativePath($from, $to));
+        }
+
+        public function relativePathTestDataProvider()
+        {
+            return array(
+                // Can go back
+                array('a/short/dir/assets/test',  'a/vendor/module/files/test',   '../../../vendor/module/files/test'),
+                // Can go forward
+                array('from/same/dir',            'from/same/dir/a/file',         'a/file'),
+                // Can stay in same dir
+                array('same/dir/assets/test',     'same/dir/assets/file',         './file')
+            );
         }
     }
 }

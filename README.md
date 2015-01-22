@@ -30,20 +30,42 @@ It's recommended to first run `composer --no-plugins` after updating your compos
 
 *__Note:__ Depending on the configuration changes you may also have to manually cleanup any remaining symlinks from the old mappings*
 
-## Configuration
+
+## Usage
 
 ### Statics project
 
-*If the ```composer.json``` file is not already there, create one with relevant information and commit it to the repo.*
+*If the `composer.json` file is not already there, create one with relevant information and commit it to the repo.*
 
-For this to work the statics repository requires the ```composer.json``` to have the ```type``` set to ```static```.
+For this to work the statics repository requires the `composer.json` to have the `type` set to `static`.
+
+#### Example Static Composer.json
+
+```
+{
+    "name": "jhhello/{project-name}-static",
+    "type": "static",
+    "description": "Main theme for {project-name}",
+    "keywords": ["jh", "statics"],
+    "authors": [
+        {
+            "name": "JH",
+            "email": "hello@wearejh.com",
+            "homepage": "http://www.wearejh.com"
+        }
+    ]
+}
+```
+
 
 
 ### Magento project
 
-Within your projects ```composer.json``` you will need to ensure you have a few configurations set up.
+Within your projects `composer.json` you will need to ensure you have a few configurations set up.
 
-In your ```require``` you will need to add any statics that you want and if private also add the repo.
+In your `require` you will need to add any statics that you want and if private also add the repo.
+
+*__Note:__ It's great at handling multiple static repositories* :thumbsup:
 
 ```
 "require": {
@@ -57,7 +79,7 @@ In your ```require``` you will need to add any statics that you want and if priv
 ]
 ```
 
-While in your ```extra``` you need the ```magento-root-dir``` set correctly and have defined the ```static-map``` for each static repository.
+In your ```extra``` you need the ```magento-root-dir``` set correctly and have defined the ```static-map``` for each static repository.
 
 ```
 "extra":{
@@ -67,7 +89,7 @@ While in your ```extra``` you need the ```magento-root-dir``` set correctly and 
             "package/theme": [
                 {
                     "src": "favicon*",
-                    "dest": ""
+                    "dest": "/"
                 },
                 {
                     "src": "assets/images/catalog",
@@ -83,57 +105,78 @@ While in your ```extra``` you need the ```magento-root-dir``` set correctly and 
 }
 ```
 
-The first key is the name of the repository which you have used in the ```require``` section, while inside there each key is the ```package/theme``` and the example would map to ```skin/frontend/package/theme``` within your ```magento-root-dir```.
+The first key is the name of the repository which you have used in the `require` section, while inside there each key is the `package/theme` in which the example would map to `skin/frontend/package/theme` within your `magento-root-dir.
 
-The ```package/theme``` array contains several objects defining the ```src``` and ```dest``` of the files. The ```src``` value is relevant to the __root__ of the __statics__ repository while the ```dest``` is relevant to the ```package/theme``` defined in the __Magento project__ such as ```skin/frontend/package/theme/``` within your ```magento-root-dir```.
+The `package/theme` array contains several objects defining the `src and dest of the files. The src` value is relevant to the __root__ of the __statics__ repository while the `dest` is relevant to the `package/theme` defined in the __Magento project__ such as `skin/frontend/package/theme/` within your `magento-root-dir`.
 
 __Need to map a static repo to more than 1 package or theme?__ No problem just add another `package/theme` array to your repos mappings, of course make sure you use a different name to any others to avoid overwriting.
 
-You can also use globs which makes it pretty awesome! A great use case for this is favicons where you could have multiple at different resolutions with a set naming convention. To target them all you would simply use ```favicon*``` like in the default example below.
+#### Valid Mappings
 
-*__Note:__ Globs require the ```dest``` to be a folder and not a file, whereas files and directories need to point to there corresponding full path which allows you to rename them if required.*
+*__Note:__ Globs require the `dest` to be a folder and not a file, whereas files and directories need to point to there corresponding full path which allows you to rename them if required. If you leave the `dest` blank on a glob it will map to the same source directory structure within your `package/theme`*
 
-#### Examples
-All favicons to root dir ```skin/frontend/package/theme/```
-
-```
-{
-    "src": "favicon*",
-    "dest": ""
-}
-```
+##### Files
 
 Link an image into a different directory structure and rename
 
 ```
 {
-    "src": "assets/images/awesome/cake.gif",
+    "src": "public/assets/img/awesome/cake.gif",
     "dest": "images/newcake.gif"
 }
 ```
 
-#### Default
+##### Directories
+
+Linking a whole directory keeping all sub-dirs & files
 
 ```
-...
 {
-    "src": "assets",
+    "src": "public/assets",
+    "dest": "assets"
+}
+```
+
+##### Globs
+
+You can also use globs which makes it pretty awesome! A great use case for this is favicons where you could have multiple at different resolutions with a set naming convention. To target them all you would simply use `favicon*` like in the default example below.
+
+All favicons to root dir `skin/frontend/package/theme/`
+
+```
+{
+    "src": "favicon*",
+    "dest": "/"
+}
+```
+
+##### Standard Recommendation
+
+The mappings below will generally work out the box with the standard [static repository](https://bitbucket.org/jhhello/frontend-boilerplates/src) set up
+
+```
+
+{
+    "src": "public/assets",
     "dest": "assets"
 },
 {
-    "src": "favicon*",
-    "dest": ""
+    "src": "public/assets/img/favicon*",
+    "dest": "/"
 },
 {
     "src": "assets/images/catalog",
     "dest": "images/catalog"
 }
-...
+
 ```
 
-#### Final Note
+#### Final Notes
 
-Don't forget to add the `package/theme` dir to your `.gitignore` otherwise our going to be adding the statics repo back into your Magento repo.
+* Use tags to explicitly pull in the static repositories
+* Don't forget to add the `package/theme` dir to your `.gitignore` otherwise our going to be adding the statics repo back into your Magento repo.
+* You can ammend statics directly from the `vendor` dir and push straight to the main repo, WIN!
+* Have fun !! :smile:
 
 ## Problems?
 

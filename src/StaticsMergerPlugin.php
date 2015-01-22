@@ -172,7 +172,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             // Ensure we have correct json
             if (isset($file['src']) && isset($file['dest'])) {
                 $src    = sprintf("%s/%s", $packageSource, $file['src']);
-                $dest   = $file['dest'];
+                $dest   = rtrim($file['dest'], '/');
 
                 // Check if it's a glob
                 if (strpos($src, '*') !== false) {
@@ -182,11 +182,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                         //and just get path relative to package
                         $fileSource = str_replace(sprintf("%s/", $packageSource), "", $globFile);
 
-                        if ($dest) {
-                            $dest = sprintf("%s/%s", rtrim($dest, "/"), basename($fileSource));
-                        } else {
-                            $dest = $fileSource;
-                        }
+                        $dest = ltrim(sprintf("%s/%s", $dest, basename($fileSource)), '/');
 
                         $this->processSymlink($packageSource, $fileSource, $destinationTheme, $dest);
                         $dest = $file['dest'];
@@ -247,7 +243,8 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         }
 
         try {
-            symlink($sourcePath, $destinationPath);
+            $relativeSourcePath = $this->getRelativePath($destinationPath, $sourcePath);
+            symlink($relativeSourcePath, $destinationPath);
         } catch (\ErrorException $ex) {
             $this->io->write(
                 "<error>Failed to symlink $sourcePath to $destinationPath</error>"
@@ -305,5 +302,49 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 }
             }
         }
+    }
+
+    /**
+     * Returns the relative path from $from to $to
+     *
+     * This is utility method for symlink creation.
+     * Orig Source: http://stackoverflow.com/a/2638272/485589
+     *
+     * @param string $from
+     * @param string $to
+     *
+     * @return string
+     */
+    public function getRelativePath($from, $to)
+    {
+        // some compatibility fixes for Windows paths
+        $from = is_dir($from) ? rtrim($from, '\/') . '/' : $from;
+        $to   = is_dir($to)   ? rtrim($to, '\/') . '/'   : $to;
+        $from = str_replace('\\', '/', $from);
+        $to   = str_replace('\\', '/', $to);
+
+        $from     = explode('/', $from);
+        $to       = explode('/', $to);
+        $relPath  = $to;
+
+        foreach($from as $depth => $dir) {
+            // find first non-matching dir
+            if($dir === $to[$depth]) {
+                // ignore this directory
+                array_shift($relPath);
+            } else {
+                // get number of remaining dirs to $from
+                $remaining = count($from) - $depth;
+                if($remaining > 1) {
+                    // add traversals up to first matching dir
+                    $padLength = (count($relPath) + $remaining - 1) * -1;
+                    $relPath = array_pad($relPath, $padLength, '..');
+                    break;
+                } else {
+                    $relPath[0] = './' . $relPath[0];
+                }
+            }
+        }
+        return implode('/', $relPath);
     }
 }
