@@ -10,7 +10,7 @@ This module is installable via ```Composer```. If you have used the Magento Skel
 
 ```
 $ cd project-root
-$ ./composer.phar require "jhhello/statics-merger"
+$ ./composer.phar require "wearejh/statics-merger"
 ```
 
 *__Note:__ As these repositories are currently private and not available via a public pakage list like Packagist Or Firegento you need to add the repository to the projects composer.json before you require the project.*
@@ -26,7 +26,7 @@ $ ./composer.phar require "jhhello/statics-merger"
 
 ### Upgrading 1.x to 2.x ?
 
-It's recommended to first run `composer --no-plugins` after updating your composer.json and then run a `composer update` to run a cleanup and map the new configuration.
+It's recommended to first run `composer update static-merger --no-plugins` after changing your composer.json and then run a `composer update nothing` to map the new configuration.
 
 *__Note:__ Depending on the configuration changes you may also have to manually cleanup any remaining symlinks from the old mappings*
 
@@ -43,7 +43,7 @@ For this to work the statics repository requires the `composer.json` to have the
 
 ```
 {
-    "name": "jhhello/{project-name}-static",
+    "name": "wearejh/{project-name}-static",
     "type": "static",
     "description": "Main theme for {project-name}",
     "keywords": ["jh", "statics"],
@@ -69,12 +69,12 @@ In your `require` you will need to add any statics that you want and if private 
 
 ```
 "require": {
-    "jhhello/static-repo": "dev-master"
+    "wearejh/{project-name}-static": "dev-master"
 },
 "repositories": [
     {
         "type": "git",
-		"url": "git@jh.git.beanstalkapp.com:/jh/static-repo.git"
+		"url": "git@jh.git.beanstalkapp.com:/jh/{project-name}-static.git"
     }
 ]
 ```
@@ -85,7 +85,7 @@ In your ```extra``` you need the ```magento-root-dir``` set correctly and have d
 "extra":{
     "magento-root-dir": "htdocs/",
     "static-map" : {
-        "jhhello/static-repo": {
+        "wearejh/{project-name}-static": {
             "package/theme": [
                 {
                     "src": "favicon*",
@@ -174,8 +174,8 @@ The mappings below will generally work out the box with the standard [static rep
 #### Final Notes
 
 * Use tags to explicitly pull in the static repositories
-* Don't forget to add the `package/theme` dir to your `.gitignore` otherwise our going to be adding the statics repo back into your Magento repo.
-* You can ammend statics directly from the `vendor` dir and push straight to the main repo, WIN!
+* Don't forget to add the `package/theme` dir to your `.gitignore` otherwise you will add the statics files to the Magento repo, and everyone will hate you
+* You can amend statics directly from the `vendor` dir and push straight to the main repo, WIN!
 * Have fun !! :smile:
 
 ## Problems?
@@ -185,7 +185,7 @@ If you find any problems or edge cases which may need to be accounted for within
 ## Running Tests
 
 ```
-$ cd vendor/jhhello/statics-merger
+$ cd vendor/wearejh/statics-merger
 $ php composer.phar install
 $ ./vendor/bin/phpunit
 ```
