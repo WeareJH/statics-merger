@@ -137,27 +137,25 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     public function symlinkStatics(CommandEvent $event)
     {
         foreach ($this->getStaticPackages() as $package) {
-            $packageMap         = $this->staticMaps[$package->getName()];
-            $packageSource      = $this->getInstallPath($package);
-            $destinationTheme   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $packageMap);
+            foreach ($this->getStaticMaps($package->getName()) as $mappingDir => $mappings) {
+                $packageSource      = $this->getInstallPath($package);
+                $destinationTheme   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
 
-            // Add slash to paths
-            $packageSource      = rtrim($packageSource, "/");
-            $destinationTheme   = rtrim($destinationTheme, "/");
+                // Add slash to paths
+                $packageSource      = rtrim($packageSource, "/");
+                $destinationTheme   = rtrim($destinationTheme, "/");
 
-            // If theme doesn't exist - Create it
-            $this->filesystem->ensureDirectoryExists($destinationTheme);
+                // If theme doesn't exist - Create it
+                $this->filesystem->ensureDirectoryExists($destinationTheme);
 
-            // Get extra file data for file paths
-            $packageExtra = $package->getExtra();
-
-            // Process any files from package
-            if (isset($packageExtra['files'])) {
-                $this->processExtraFiles($packageSource, $destinationTheme, $packageExtra['files']);
-            } else {
-                $this->io->write(
-                    sprintf('<error>%s requires at least one file mapping, has none!<error>', $package->getPrettyName())
-                );
+                // Process files from package
+                if ($mappings) {
+                    $this->processFiles($packageSource, $destinationTheme, $mappings);
+                } else {
+                    $this->io->write(
+                        sprintf('<error>%s requires at least one file mapping, has none!<error>', $package->getPrettyName())
+                    );
+                }
             }
         }
     }
@@ -168,13 +166,13 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      * @param array $files
      * @return bool|void
      */
-    public function processExtraFiles($packageSource, $destinationTheme, $files = array())
+    public function processFiles($packageSource, $destinationTheme, $files = array())
     {
         foreach ($files as $file) {
             // Ensure we have correct json
             if (isset($file['src']) && isset($file['dest'])) {
                 $src    = sprintf("%s/%s", $packageSource, $file['src']);
-                $dest   = $file['dest'];
+                $dest   = rtrim($file['dest'], '/');
 
                 // Check if it's a glob
                 if (strpos($src, '*') !== false) {
@@ -184,11 +182,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                         //and just get path relative to package
                         $fileSource = str_replace(sprintf("%s/", $packageSource), "", $globFile);
 
-                        if ($dest) {
-                            $dest = sprintf("%s/%s", rtrim($dest, "/"), basename($fileSource));
-                        } else {
-                            $dest = $fileSource;
-                        }
+                        $dest = ltrim(sprintf("%s/%s", $dest, basename($fileSource)), '/');
 
                         $this->processSymlink($packageSource, $fileSource, $destinationTheme, $dest);
                         $dest = $file['dest'];
@@ -249,7 +243,8 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         }
 
         try {
-            symlink($sourcePath, $destinationPath);
+            $relativeSourcePath = $this->getRelativePath($destinationPath, $sourcePath);
+            symlink($relativeSourcePath, $destinationPath);
         } catch (\ErrorException $ex) {
             $this->io->write(
                 "<error>Failed to symlink $sourcePath to $destinationPath</error>"
@@ -266,8 +261,25 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         $packages = $this->composer->getRepositoryManager()->getLocalRepository()->getPackages();
 
         return array_filter($packages, function ($package) {
-            return $package->getType() == static::PACKAGE_TYPE && isset($this->staticMaps[$package->getName()]);
+            return $package->getType() == static::PACKAGE_TYPE && $this->getStaticMaps($package->getName());
         });
+    }
+
+    /**
+     * Get a single static package's maps or all static maps
+     * @param null $packageName
+     * @return array|bool
+     */
+    public function getStaticMaps($packageName = null)
+    {
+        if ($packageName === null) {
+            return $this->staticMaps;
+        } else if (array_key_exists($packageName, $this->staticMaps)) {
+            return $this->staticMaps[$packageName];
+        } else {
+            $this->io->write(sprintf("<error>Mappings for %s are not defined</error>", $packageName));
+            return array();
+        }
     }
 
     /**
@@ -277,16 +289,62 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     public function staticsCleanup(CommandEvent $event)
     {
         foreach ($this->getStaticPackages() as $package) {
-            $packageMap = explode('/', $this->staticMaps[$package->getName()]);
-            $themeMap   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $packageMap[0]);
+            foreach ($this->getStaticMaps($package->getName()) as $mappingDir => $mappings) {
+                $mappingDirs    = explode('/', $mappingDir);
+                $mappingRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
 
-            try {
-                $this->filesystem->removeDirectory(rtrim($themeMap, "/"));
-            } catch (\RuntimeException $ex) {
-                $this->io->write(
-                    sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeMap)
-                );
+                try {
+                    $this->filesystem->removeDirectory(rtrim($mappingRootDir, "/"));
+                } catch (\RuntimeException $ex) {
+                    $this->io->write(
+                        sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $mappingRootDir)
+                    );
+                }
             }
         }
+    }
+
+    /**
+     * Returns the relative path from $from to $to
+     *
+     * This is utility method for symlink creation.
+     * Orig Source: http://stackoverflow.com/a/2638272/485589
+     *
+     * @param string $from
+     * @param string $to
+     *
+     * @return string
+     */
+    public function getRelativePath($from, $to)
+    {
+        // some compatibility fixes for Windows paths
+        $from = is_dir($from) ? rtrim($from, '\/') . '/' : $from;
+        $to   = is_dir($to)   ? rtrim($to, '\/') . '/'   : $to;
+        $from = str_replace('\\', '/', $from);
+        $to   = str_replace('\\', '/', $to);
+
+        $from     = explode('/', $from);
+        $to       = explode('/', $to);
+        $relPath  = $to;
+
+        foreach($from as $depth => $dir) {
+            // find first non-matching dir
+            if($dir === $to[$depth]) {
+                // ignore this directory
+                array_shift($relPath);
+            } else {
+                // get number of remaining dirs to $from
+                $remaining = count($from) - $depth;
+                if($remaining > 1) {
+                    // add traversals up to first matching dir
+                    $padLength = (count($relPath) + $remaining - 1) * -1;
+                    $relPath = array_pad($relPath, $padLength, '..');
+                    break;
+                } else {
+                    $relPath[0] = './' . $relPath[0];
+                }
+            }
+        }
+        return implode('/', $relPath);
     }
 }

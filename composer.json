@@ -1,5 +1,5 @@
 {
-    "name": "jhhello/statics-merger",
+    "name": "wearejh/statics-merger",
     "type": "composer-plugin",
     "description": "A composer plugin that symlinks static assets into the JH Magento Skeleton",
     "keywords": [

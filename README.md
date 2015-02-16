@@ -1,6 +1,6 @@
 # Statics Merger
 
-A composer plugin aimed to simplify the workflow between the frontend and backend development teams. Static repositories that the frontend team use are added as a composer dependency to the project as type ```static```. 
+A composer plugin aimed to simplify the workflow between the frontend and backend development teams. Static repositories that the frontend team use are added as a composer dependency to the project as type ```static```.
 
 The plugin hooks onto two composer commands ```install``` and ```update``` in which on completion will symlink all static packages as defined in their ```composer.json``` file.
 
@@ -10,7 +10,7 @@ This module is installable via ```Composer```. If you have used the Magento Skel
 
 ```
 $ cd project-root
-$ ./composer.phar require "jhhello/statics-merger" 
+$ ./composer.phar require "wearejh/statics-merger"
 ```
 
 *__Note:__ As these repositories are currently private and not available via a public pakage list like Packagist Or Firegento you need to add the repository to the projects composer.json before you require the project.*
@@ -24,102 +24,168 @@ $ ./composer.phar require "jhhello/statics-merger"
 ]
 ```
 
-## Configuration
+### Upgrading 1.x to 2.x ?
 
-### Magento project
+It's recommended to first run `composer update static-merger --no-plugins` after changing your composer.json and then run a `composer update nothing` to map the new configuration.
 
-Within your projects ```composer.json``` you will need to ensure you have a few configurations set up. 
+*__Note:__ Depending on the configuration changes you may also have to manually cleanup any remaining symlinks from the old mappings*
 
-In your ```require``` you will need to add any statics that you want and if private also add the repo. 
 
-```
-"require": {
-    "jhhello/cake-dec-static": "dev-master"
-},
-"repositories": [
-    {
-        "type": "git",
-		"url": "git@jh.git.beanstalkapp.com:/jh/cake-dec-static.git"
-    }
-]
-```
-
-While in your ```extra``` you need the ```magento-root-dir``` set correctly and have defined the ```static-map``` for each static repository.
-
-```
-"extra":{
-    "magento-root-dir": "htdocs/",
-    "static-map" : {
-        "jhhello/cake-dec-static": "cake/default"
-    }
-}
-```
-
-The key is the name of the repository which you have used in the ```require``` section, while the value is the ```package/theme``` and the example would map to ```skin/frontend/cake/default``` within your ```magento-root-dir```.
+## Usage
 
 ### Statics project
 
-*__Note:__ If the ```composer.json``` file is not already there, create one with relevant information and commit it to the repo.*
+*If the `composer.json` file is not already there, create one with relevant information and commit it to the repo.*
 
-For this to work the statics repository requires the ```composer.json``` to have the ```type``` set to ```static```.
+For this to work the statics repository requires the `composer.json` to have the `type` set to `static`.
 
-Extra file configuration can be set using the ```files``` array within the ```extra``` section in the ```composer.json``` file.
-
-The ```files``` array contains several objects defining the ```src``` and ```dest``` of the files. The ```src``` value is relevant to the __root__ of the __statics__ repository while the ```dest``` is relevant to the ```package/theme``` defined in the __Magento project__ such as ```skin/frontend/cake/default/``` within your ```magento-root-dir```.
-
-You can also use globs which makes it pretty awesome! A great use case for this is favicons where you could have multiple at different resolutions with a set naming convention. To target them all you would simply use ```favicon*``` like in the default example below.
-
-*__Note:__ Globs require the ```dest``` to be a folder and not a file, whereas files and directories need to point to there corresponding full path which allows you to rename them if required.*
-
-#### Examples
-All favicons to root dir ```skin/frontend/cake/default/```
-
-```
-{ 
-	"src": "favicon*",
-	"dest": "" 
-}
-```
-
-Link an image external to assets
+#### Example Static Composer.json
 
 ```
 {
-	"src": "assets/images/awesome/cake.gif",
-	"dest": "images/newcake.gif"
-}
-```
-
-#### Default
-
-The set defaults are below for a quick copy and paste.
-
-```
-"type": "static",
-"extra": {
-    "files": [
+    "name": "wearejh/{project-name}-static",
+    "type": "static",
+    "description": "Main theme for {project-name}",
+    "keywords": ["jh", "statics"],
+    "authors": [
         {
-            "src": "favicon*",
-            "dest": ""
-        },
-        {
-            "src": "assets/images/catalog",
-            "dest": "images/catalog"
+            "name": "JH",
+            "email": "hello@wearejh.com",
+            "homepage": "http://www.wearejh.com"
         }
     ]
 }
 ```
 
-*__Note:__ By default the assets folder is done for you, this is used for any extra files such as favicons and catalog placeholder images etc but is not required.*
+
+
+### Magento project
+
+Within your projects `composer.json` you will need to ensure you have a few configurations set up.
+
+In your `require` you will need to add any statics that you want and if private also add the repo.
+
+*__Note:__ It's great at handling multiple static repositories* :thumbsup:
+
+```
+"require": {
+    "wearejh/{project-name}-static": "dev-master"
+},
+"repositories": [
+    {
+        "type": "git",
+		"url": "git@jh.git.beanstalkapp.com:/jh/{project-name}-static.git"
+    }
+]
+```
+
+In your ```extra``` you need the ```magento-root-dir``` set correctly and have defined the ```static-map``` for each static repository.
+
+```
+"extra":{
+    "magento-root-dir": "htdocs/",
+    "static-map" : {
+        "wearejh/{project-name}-static": {
+            "package/theme": [
+                {
+                    "src": "favicon*",
+                    "dest": "/"
+                },
+                {
+                    "src": "assets/images/catalog",
+                    "dest": "images/catalog"
+                },
+                {
+                    "src": "assets/js/varien",
+                    "dest": "js/varien"
+                }
+            ]
+        }
+    }
+}
+```
+
+The first key is the name of the repository which you have used in the `require` section, while inside there each key is the `package/theme` in which the example would map to `skin/frontend/package/theme` within your `magento-root-dir.
+
+The `package/theme` array contains several objects defining the `src and dest of the files. The src` value is relevant to the __root__ of the __statics__ repository while the `dest` is relevant to the `package/theme` defined in the __Magento project__ such as `skin/frontend/package/theme/` within your `magento-root-dir`.
+
+__Need to map a static repo to more than 1 package or theme?__ No problem just add another `package/theme` array to your repos mappings, of course make sure you use a different name to any others to avoid overwriting.
+
+#### Valid Mappings
+
+*__Note:__ Globs require the `dest` to be a folder and not a file, whereas files and directories need to point to there corresponding full path which allows you to rename them if required. If you leave the `dest` blank on a glob it will map to the same source directory structure within your `package/theme`*
+
+##### Files
+
+Link an image into a different directory structure and rename
+
+```
+{
+    "src": "public/assets/img/awesome/cake.gif",
+    "dest": "images/newcake.gif"
+}
+```
+
+##### Directories
+
+Linking a whole directory keeping all sub-dirs & files
+
+```
+{
+    "src": "public/assets",
+    "dest": "assets"
+}
+```
+
+##### Globs
+
+You can also use globs which makes it pretty awesome! A great use case for this is favicons where you could have multiple at different resolutions with a set naming convention. To target them all you would simply use `favicon*` like in the default example below.
+
+All favicons to root dir `skin/frontend/package/theme/`
+
+```
+{
+    "src": "favicon*",
+    "dest": "/"
+}
+```
+
+##### Standard Recommendation
+
+The mappings below will generally work out the box with the standard [static repository](https://bitbucket.org/jhhello/frontend-boilerplates/src) set up
+
+```
+
+{
+    "src": "public/assets",
+    "dest": "assets"
+},
+{
+    "src": "public/assets/img/favicon*",
+    "dest": "/"
+},
+{
+    "src": "assets/images/catalog",
+    "dest": "images/catalog"
+}
+
+```
+
+#### Final Notes
+
+* Use tags to explicitly pull in the static repositories
+* Don't forget to add the `package/theme` dir to your `.gitignore` otherwise you will add the statics files to the Magento repo, and everyone will hate you
+* You can amend statics directly from the `vendor` dir and push straight to the main repo, WIN!
+* Have fun !! :smile:
 
 ## Problems?
 
-If you find any problems or edge cases which may need to be accounted for within this composer plugin just open up an issue with as much detail as possible so it can be recreated. 
+If you find any problems or edge cases which may need to be accounted for within this composer plugin just open up an issue with as much detail as possible so it can be recreated.
 
 ## Running Tests
 
 ```
-$ cd vendor/jhhello/statics-merger
+$ cd vendor/wearejh/statics-merger
 $ php composer.phar install
 $ ./vendor/bin/phpunit
 ```
