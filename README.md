@@ -88,16 +88,16 @@ In your ```extra``` you need the ```magento-root-dir``` set correctly and have d
         "wearejh/{project-name}-static": {
             "package/theme": [
                 {
-                    "src": "favicon*",
+                    "src": "public/assets",
+                    "dest": "assets"
+                },
+                {
+                    "src": "public/assets/img/favicon*",
                     "dest": "/"
                 },
                 {
                     "src": "assets/images/catalog",
                     "dest": "images/catalog"
-                },
-                {
-                    "src": "assets/js/varien",
-                    "dest": "js/varien"
                 }
             ]
         }
