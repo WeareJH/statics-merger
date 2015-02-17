@@ -26,7 +26,7 @@ $ ./composer.phar require "wearejh/statics-merger"
 
 ### Upgrading 1.x to 2.x ?
 
-It's recommended to first run `composer update static-merger --no-plugins` after changing your composer.json and then run a `composer update nothing` to map the new configuration.
+It's recommended to first run `composer update statics-merger --no-plugins` after changing your composer.json and then run a `composer update nothing` to map the new configuration.
 
 *__Note:__ Depending on the configuration changes you may also have to manually cleanup any remaining symlinks from the old mappings*
 
