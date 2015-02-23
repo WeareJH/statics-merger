@@ -8,6 +8,7 @@ namespace Jh\StaticsMergerTest {
     use Composer\Repository\RepositoryManager;
     use Composer\Repository\WritableArrayRepository;
     use Composer\Script\CommandEvent;
+    use Composer\Util\Filesystem;
     use Jh\StaticsMerger\StaticsMergerPlugin;
     use Composer\Test\TestCase;
     use Composer\Composer;
@@ -651,7 +652,7 @@ namespace Jh\StaticsMergerTest {
                 ->expects($this->once())
                 ->method('write')
                 ->with(sprintf(
-                    "<error>Failed to remove some/static from %s/htdocs/skin/frontend/package</error>",
+                    "<error>Failed to remove some/static from %s/htdocs/skin/frontend/package/theme</error>",
                     realpath(sys_get_temp_dir()) . "/static-merge-test"
                 ));
 
@@ -664,6 +665,79 @@ namespace Jh\StaticsMergerTest {
 
             $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
             $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        }
+
+        public function testStaticsCleanupOutputOnPackageRemovalException()
+        {
+            $this->createRootPackage();
+            $event = new CommandEvent('event', $this->composer, $this->io);
+
+            $this->localRepository->addPackage($this->createStaticPackage());
+            $this->activatePlugin();
+            $this->plugin->symlinkStatics($event);
+
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+
+            $filesystem = $this->getMockBuilder('Composer\Util\Filesystem')
+                ->setMethods(array('removeDirectory'))
+                ->getMock();
+
+            $themeDir = $themeDir = sprintf(
+                '%s/htdocs/skin/frontend/package/theme',
+                $this->projectRoot
+            );
+
+            $filesystem
+                ->expects($this->exactly(2))
+                ->method('removeDirectory')
+                ->will($this->onConsecutiveCalls(
+                    $this->returnCallback(function() use ($themeDir) {
+                        $fileSys = new Filesystem();
+                        $fileSys->removeDirectory($themeDir);
+                    }),
+                    $this->throwException(new \RuntimeException())
+                ));
+
+            $this->io
+                ->expects($this->once())
+                ->method('write')
+                ->with(sprintf(
+                    "<error>Failed to remove some/static from %s/htdocs/skin/frontend/package</error>",
+                    realpath(sys_get_temp_dir()) . "/static-merge-test"
+                ));
+
+            $refObject   = new ReflectionObject($this->plugin);
+            $refProperty = $refObject->getProperty('filesystem');
+            $refProperty->setAccessible(true);
+            $refProperty->setValue($this->plugin, $filesystem);
+
+            $this->plugin->staticsCleanup($event);
+
+            $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package");
+        }
+
+        public function testStaticCleanupWillNotRemoveNonMappedThemesFromPackage()
+        {
+            $this->createRootPackage();
+            $event = new CommandEvent('event', $this->composer, $this->io);
+
+            $this->localRepository->addPackage($this->createStaticPackage());
+            $this->activatePlugin();
+            $this->plugin->symlinkStatics($event);
+
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+
+            // Create a non mapped static theme
+            mkdir(sprintf('%s/htdocs/skin/frontend/package/nonMappedTheme', $this->projectRoot));
+
+            $this->plugin->staticsCleanup($event);
+
+            $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package");
+            $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/nonMappedTheme");
         }
 
         public function testGetStaticMapsWillReturnAll()
