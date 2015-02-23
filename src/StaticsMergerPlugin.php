@@ -291,14 +291,27 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         foreach ($this->getStaticPackages() as $package) {
             foreach ($this->getStaticMaps($package->getName()) as $mappingDir => $mappings) {
                 $mappingDirs    = explode('/', $mappingDir);
-                $mappingRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
+                $packageRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
+                $themeRootDir   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
 
                 try {
-                    $this->filesystem->removeDirectory(rtrim($mappingRootDir, "/"));
+                    $this->filesystem->removeDirectory(rtrim($themeRootDir, "/"));
                 } catch (\RuntimeException $ex) {
                     $this->io->write(
-                        sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $mappingRootDir)
+                        sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeRootDir)
                     );
+                    return;
+                }
+
+                // Check if we need to remove package dir
+                if ($this->filesystem->isDirEmpty($packageRootDir)) {
+                    try {
+                        $this->filesystem->removeDirectory(rtrim($packageRootDir, "/"));
+                    } catch (\RuntimeException $ex) {
+                        $this->io->write(
+                            sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir)
+                        );
+                    }
                 }
             }
         }
