@@ -13,17 +13,6 @@ $ cd project-root
 $ ./composer.phar require "wearejh/statics-merger"
 ```
 
-*__Note:__ As these repositories are currently private and not available via a public pakage list like Packagist Or Firegento you need to add the repository to the projects composer.json before you require the project.*
-
-```
-"repositories": [
-    {
-        "type": "git",
-        "url": "git@bitbucket.org:jhhello/statics-merger.git"
-    }
-]
-```
-
 ### Upgrading 1.x to 2.x ?
 
 It's recommended to first run `composer update statics-merger --no-plugins` after changing your composer.json and then run a `composer update nothing` to map the new configuration.
@@ -56,7 +45,6 @@ For this to work the statics repository requires the `composer.json` to have the
     ]
 }
 ```
-
 
 
 ### Magento project
