@@ -138,27 +138,6 @@ All favicons to root dir `skin/frontend/package/theme/`
 }
 ```
 
-##### Standard Recommendation
-
-The mappings below will generally work out the box with the standard [static repository](https://bitbucket.org/jhhello/frontend-boilerplates/src) set up
-
-```
-
-{
-    "src": "public/assets",
-    "dest": "assets"
-},
-{
-    "src": "public/assets/img/favicon*",
-    "dest": "/"
-},
-{
-    "src": "assets/images/catalog",
-    "dest": "images/catalog"
-}
-
-```
-
 #### Final Notes
 
 * Use tags to explicitly pull in the static repositories
