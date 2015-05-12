@@ -304,7 +304,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 }
 
                 // Check if we need to remove package dir
-                if ($this->filesystem->isDirEmpty($packageRootDir)) {
+                if (is_dir($packageRootDir) && $this->filesystem->isDirEmpty($packageRootDir)) {
                     try {
                         $this->filesystem->removeDirectory(rtrim($packageRootDir, "/"));
                     } catch (\RuntimeException $ex) {
