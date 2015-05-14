@@ -294,27 +294,63 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 $packageRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
                 $themeRootDir   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
 
-                try {
-                    $this->filesystem->removeDirectory(rtrim($themeRootDir, "/"));
-                } catch (\RuntimeException $ex) {
-                    $this->io->write(
-                        sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeRootDir)
-                    );
-                    return;
+                // Get contents and sort
+                $contents = $this->getFullDirectoryListing($themeRootDir);
+                array_multisort(array_map('strlen', $contents), SORT_DESC, $contents);
+
+                // Exception error message
+                $errorMsg = sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir);
+
+                foreach ($contents as $content) {
+                    // Remove packages symlinked files/dirs
+                    if (is_link($content) && strpos($content, $mappingDir) !== false) {
+                        $this->tryCleanup($content, $errorMsg);
+                        continue;
+                    }
+
+                    // Remove empty folders
+                    if (is_dir($content) && $this->filesystem->isDirEmpty($content)) {
+                        $this->tryCleanup($content, $errorMsg);
+                    }
                 }
 
                 // Check if we need to remove package dir
                 if (is_dir($packageRootDir) && $this->filesystem->isDirEmpty($packageRootDir)) {
-                    try {
-                        $this->filesystem->removeDirectory(rtrim($packageRootDir, "/"));
-                    } catch (\RuntimeException $ex) {
-                        $this->io->write(
-                            sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir)
-                        );
-                    }
+                    $this->tryCleanup(rtrim($packageRootDir, "/"), $errorMsg);
                 }
             }
         }
+    }
+
+    /**
+     * Try to cleanup a file/dir, output on exception
+     * @param $path
+     */
+    private function tryCleanup($path, $errorMsg)
+    {
+        try {
+            $this->filesystem->remove($path);
+        } catch (\RuntimeException $ex) {
+            $this->io->write($errorMsg);
+        }
+    }
+
+    /**
+     * Get full directory listing without dots
+     * @param string $path
+     * @return array
+     */
+    private function getFullDirectoryListing($path)
+    {
+        $listings   = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
+        $listingArr = array_keys(\iterator_to_array($listings));
+
+        // Remove dots :)
+        $listingArr = array_map(function($listing) {
+            return rtrim($listing, '\/\.');
+        }, $listingArr);
+
+        return array_unique($listingArr);
     }
 
     /**
