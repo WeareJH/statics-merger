@@ -10,6 +10,7 @@ use Composer\Script\ScriptEvents;
 use Composer\Script\CommandEvent;
 use Composer\Util\Filesystem;
 use Composer\Package\PackageInterface;
+use Composer\Package\Package;
 
 /**
  * Composer Plugin for merging static assets with the Jh Magento Skeleton
@@ -260,7 +261,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     {
         $packages = $this->composer->getRepositoryManager()->getLocalRepository()->getPackages();
 
-        return array_filter($packages, function ($package) {
+        return array_filter($packages, function (Package $package) {
             return $package->getType() == static::PACKAGE_TYPE && $this->getStaticMaps($package->getName());
         });
     }
@@ -268,7 +269,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     /**
      * Get a single static package's maps or all static maps
      * @param null $packageName
-     * @return array|bool
+     * @return array
      */
     public function getStaticMaps($packageName = null)
     {
@@ -294,9 +295,14 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 $packageRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
                 $themeRootDir   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
 
+                if (!is_dir($themeRootDir)) {
+                    continue;
+                }
+
                 // Get contents and sort
-                $contents = $this->getFullDirectoryListing($themeRootDir);
-                array_multisort(array_map('strlen', $contents), SORT_DESC, $contents);
+                $contents   = $this->getFullDirectoryListing($themeRootDir);
+                $strLengths = array_map('strlen', $contents);
+                array_multisort($strLengths, SORT_DESC, $contents);
 
                 // Exception error message
                 $errorMsg = sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir);

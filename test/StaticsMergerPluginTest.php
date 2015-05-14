@@ -778,6 +778,23 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/removeme");
     }
 
+    public function testStaticsCleanupWorksWithNoFilesToClean()
+    {
+        $this->createRootPackage();
+        $event = new CommandEvent('event', $this->composer, $this->io);
+
+        $this->localRepository->addPackage($this->createStaticPackage());
+        $this->activatePlugin();
+
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+
+        $this->plugin->staticsCleanup($event);
+
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+    }
+
     public function testGetStaticMapsWillReturnAll()
     {
         $this->createRootPackage();
