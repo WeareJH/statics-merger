@@ -153,7 +153,10 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                     $this->processFiles($packageSource, $destinationTheme, $mappings);
                 } else {
                     $this->io->write(
-                        sprintf('<error>%s requires at least one file mapping, has none!<error>', $package->getPrettyName())
+                        sprintf(
+                            '<error>%s requires at least one file mapping, has none!<error>',
+                            $package->getPrettyName()
+                        )
                     );
                 }
             }
@@ -236,16 +239,13 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         if (is_link($destinationPath)) {
             unlink($destinationPath);
         } else {
-
             //file doesn't already exist
             //lets make sure the parent directory does
             $this->filesystem->ensureDirectoryExists(dirname($destinationPath));
         }
 
-        try {
-            $relativeSourcePath = $this->getRelativePath($destinationPath, $sourcePath);
-            symlink($relativeSourcePath, $destinationPath);
-        } catch (\ErrorException $ex) {
+        $relativeSourcePath = $this->getRelativePath($destinationPath, $sourcePath);
+        if (!\symlink($relativeSourcePath, $destinationPath)) {
             $this->io->write(
                 "<error>Failed to symlink $sourcePath to $destinationPath</error>"
             );
@@ -274,7 +274,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     {
         if ($packageName === null) {
             return $this->staticMaps;
-        } else if (array_key_exists($packageName, $this->staticMaps)) {
+        } elseif (array_key_exists($packageName, $this->staticMaps)) {
             return $this->staticMaps[$packageName];
         } else {
             $this->io->write(sprintf("<error>Mappings for %s are not defined</error>", $packageName));
@@ -294,27 +294,63 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 $packageRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
                 $themeRootDir   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
 
-                try {
-                    $this->filesystem->removeDirectory(rtrim($themeRootDir, "/"));
-                } catch (\RuntimeException $ex) {
-                    $this->io->write(
-                        sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeRootDir)
-                    );
-                    return;
+                // Get contents and sort
+                $contents = $this->getFullDirectoryListing($themeRootDir);
+                array_multisort(array_map('strlen', $contents), SORT_DESC, $contents);
+
+                // Exception error message
+                $errorMsg = sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir);
+
+                foreach ($contents as $content) {
+                    // Remove packages symlinked files/dirs
+                    if (is_link($content) && strpos($content, $mappingDir) !== false) {
+                        $this->tryCleanup($content, $errorMsg);
+                        continue;
+                    }
+
+                    // Remove empty folders
+                    if (is_dir($content) && $this->filesystem->isDirEmpty($content)) {
+                        $this->tryCleanup($content, $errorMsg);
+                    }
                 }
 
                 // Check if we need to remove package dir
                 if (is_dir($packageRootDir) && $this->filesystem->isDirEmpty($packageRootDir)) {
-                    try {
-                        $this->filesystem->removeDirectory(rtrim($packageRootDir, "/"));
-                    } catch (\RuntimeException $ex) {
-                        $this->io->write(
-                            sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir)
-                        );
-                    }
+                    $this->tryCleanup(rtrim($packageRootDir, "/"), $errorMsg);
                 }
             }
         }
+    }
+
+    /**
+     * Try to cleanup a file/dir, output on exception
+     * @param $path
+     */
+    private function tryCleanup($path, $errorMsg)
+    {
+        try {
+            $this->filesystem->remove($path);
+        } catch (\RuntimeException $ex) {
+            $this->io->write($errorMsg);
+        }
+    }
+
+    /**
+     * Get full directory listing without dots
+     * @param string $path
+     * @return array
+     */
+    private function getFullDirectoryListing($path)
+    {
+        $listings   = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
+        $listingArr = array_keys(\iterator_to_array($listings));
+
+        // Remove dots :)
+        $listingArr = array_map(function ($listing) {
+            return rtrim($listing, '\/\.');
+        }, $listingArr);
+
+        return array_unique($listingArr);
     }
 
     /**
@@ -340,15 +376,15 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         $to       = explode('/', $to);
         $relPath  = $to;
 
-        foreach($from as $depth => $dir) {
+        foreach ($from as $depth => $dir) {
             // find first non-matching dir
-            if($dir === $to[$depth]) {
+            if ($dir === $to[$depth]) {
                 // ignore this directory
                 array_shift($relPath);
             } else {
                 // get number of remaining dirs to $from
                 $remaining = count($from) - $depth;
-                if($remaining > 1) {
+                if ($remaining > 1) {
                     // add traversals up to first matching dir
                     $padLength = (count($relPath) + $remaining - 1) * -1;
                     $relPath = array_pad($relPath, $padLength, '..');

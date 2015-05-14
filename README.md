@@ -1,5 +1,8 @@
 # Statics Merger
 
+[![Build Status](https://travis-ci.org/WeareJH/statics-merger.svg?branch=master)](https://travis-ci.org/WeareJH/statics-merger)
+[![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/WeareJH/statics-merger/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/WeareJH/statics-merger/)
+
 A composer plugin aimed to simplify the workflow between the frontend and backend development teams. Static repositories that the frontend team use are added as a composer dependency to the project as type ```static```.
 
 The plugin hooks onto two composer commands ```install``` and ```update``` in which on completion will symlink all static packages as defined in their ```composer.json``` file.
