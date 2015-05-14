@@ -2,6 +2,7 @@
 
 [![Build Status](https://travis-ci.org/WeareJH/statics-merger.svg?branch=master)](https://travis-ci.org/WeareJH/statics-merger)
 [![Scrutinizer Code Quality](https://scrutinizer-ci.com/g/WeareJH/statics-merger/badges/quality-score.png?b=master)](https://scrutinizer-ci.com/g/WeareJH/statics-merger/)
+[![Scrutinizer Code Coverage](https://scrutinizer-ci.com/g/WeareJH/statics-merger/badges/coverage.png?b=master)](https://scrutinizer-ci.com/g/WeareJH/statics-merger/)
 
 A composer plugin aimed to simplify the workflow between the frontend and backend development teams. Static repositories that the frontend team use are added as a composer dependency to the project as type ```static```.
 
