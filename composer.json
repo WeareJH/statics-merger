@@ -43,6 +43,6 @@
     "require-dev": {
         "composer/composer": "dev-master",
         "phpunit/phpunit": "~4.4",
-        "squizlabs/php_codesniffer": "1.5.*"
+        "squizlabs/php_codesniffer": "2.3.*"
     }
 }
