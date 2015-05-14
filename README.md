@@ -8,7 +8,7 @@ The plugin hooks onto two composer commands ```install``` and ```update``` in wh
 
 This module is installable via ```Composer```. If you have used the Magento Skeleton as a base module then you can just require this project and all the rest is done for you.
 
-```
+```sh
 $ cd project-root
 $ ./composer.phar require "wearejh/statics-merger"
 ```
@@ -30,7 +30,7 @@ For this to work the statics repository requires the `composer.json` to have the
 
 #### Example Static Composer.json
 
-```
+```json
 {
     "name": "wearejh/{project-name}-static",
     "type": "static",
@@ -55,7 +55,7 @@ In your `require` you will need to add any statics that you want and if private 
 
 *__Note:__ It's great at handling multiple static repositories* :thumbsup:
 
-```
+```json
 "require": {
     "wearejh/{project-name}-static": "dev-master"
 },
@@ -69,7 +69,7 @@ In your `require` you will need to add any statics that you want and if private 
 
 In your ```extra``` you need the ```magento-root-dir``` set correctly and have defined the ```static-map``` for each static repository.
 
-```
+```json
 "extra":{
     "magento-root-dir": "htdocs/",
     "static-map" : {
@@ -107,7 +107,7 @@ __Need to map a static repo to more than 1 package or theme?__ No problem just a
 
 Link an image into a different directory structure and rename
 
-```
+```json
 {
     "src": "public/assets/img/awesome/cake.gif",
     "dest": "images/newcake.gif"
@@ -118,7 +118,7 @@ Link an image into a different directory structure and rename
 
 Linking a whole directory keeping all sub-dirs & files
 
-```
+```json
 {
     "src": "public/assets",
     "dest": "assets"
@@ -131,7 +131,7 @@ You can also use globs which makes it pretty awesome! A great use case for this 
 
 All favicons to root dir `skin/frontend/package/theme/`
 
-```
+```json
 {
     "src": "favicon*",
     "dest": "/"
@@ -151,7 +151,7 @@ If you find any problems or edge cases which may need to be accounted for within
 
 ## Running Tests
 
-```
+```sh
 $ cd vendor/wearejh/statics-merger
 $ php composer.phar install
 $ ./vendor/bin/phpunit
