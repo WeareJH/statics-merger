@@ -2,6 +2,7 @@
 
 namespace Jh\StaticsMergerTest;
 
+use Composer\Package\AliasPackage;
 use Composer\Package\Package;
 use Composer\Package\PackageInterface;
 use Composer\Package\RootPackage;
@@ -973,5 +974,22 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             // Can stay in same dir
             array('same/dir/assets/test',     'same/dir/assets/file',         './file')
         );
+    }
+
+    public function testGetStaticPackagesAllowsAliasPackageInstance()
+    {
+        $this->createRootPackage();
+        $staticPackage = $this->createStaticPackage();
+
+        $truePackage = new Package("package/package", "1.0.0", "package/package");
+        $aliasPackage = new AliasPackage($truePackage, '1.1.1', 'alias/package');
+
+        $this->localRepository->addPackage($aliasPackage);
+        $this->localRepository->addPackage($staticPackage);
+
+        $this->activatePlugin();
+        $staticPackages = $this->plugin->getStaticPackages();
+
+        $this->assertNotEmpty($staticPackages);
     }
 }
