@@ -261,7 +261,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     {
         $packages = $this->composer->getRepositoryManager()->getLocalRepository()->getPackages();
 
-        return array_filter($packages, function (Package $package) {
+        return array_filter($packages, function (PackageInterface $package) {
             return $package->getType() == static::PACKAGE_TYPE && $this->getStaticMaps($package->getName());
         });
     }
