@@ -7,7 +7,7 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\ScriptEvents;
-use Composer\Script\CommandEvent;
+use Composer\Script\Event;
 use Composer\Util\Filesystem;
 use Composer\Package\PackageInterface;
 use Composer\Package\Package;
@@ -56,7 +56,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     /**
      * @var string
      */
-    protected $mageDir;
+    protected $mageDir = '';
 
     /**
      * @param Composer $composer
@@ -77,12 +77,12 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         }
 
         if (!isset($this->packageExtra['magento-root-dir'])) {
-            $this->io->write("<info>Magento root dir not defined</info>");
-            return false;
+            $this->io->write("<info>Magento root dir not defined, assumed current working directory</info>");
+        } else {
+            $this->mageDir = rtrim($this->packageExtra['magento-root-dir'], '/');
         }
 
-        $this->staticMaps   = $this->packageExtra['static-map'];
-        $this->mageDir      = rtrim($this->packageExtra['magento-root-dir'], '/');
+        $this->staticMaps  = $this->packageExtra['static-map'];
     }
 
     /**
@@ -132,19 +132,20 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
     /**
      * Symlink the static repositories
-     * @param CommandEvent $event
+     * @param Event $event
      * @return bool|void
      */
-    public function symlinkStatics(CommandEvent $event)
+    public function symlinkStatics(Event $event)
     {
         foreach ($this->getStaticPackages() as $package) {
+            $packageSource = $this->getInstallPath($package);
+
             foreach ($this->getStaticMaps($package->getName()) as $mappingDir => $mappings) {
-                $packageSource      = $this->getInstallPath($package);
-                $destinationTheme   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
+                $destinationTheme = $this->getRootThemeDir($mappingDir);
 
                 // Add slash to paths
-                $packageSource      = rtrim($packageSource, "/");
-                $destinationTheme   = rtrim($destinationTheme, "/");
+                $packageSource    = rtrim($packageSource, "/");
+                $destinationTheme = rtrim($destinationTheme, "/");
 
                 // If theme doesn't exist - Create it
                 $this->filesystem->ensureDirectoryExists($destinationTheme);
@@ -246,7 +247,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         }
 
         $relativeSourcePath = $this->getRelativePath($destinationPath, $sourcePath);
-        if (!\symlink($relativeSourcePath, $destinationPath)) {
+        if (!@\symlink($relativeSourcePath, $destinationPath)) {
             $this->io->write(
                 "<error>Failed to symlink $sourcePath to $destinationPath</error>"
             );
@@ -284,16 +285,14 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     }
 
     /**
-     * @param CommandEvent $event
+     * @param Event $event
      * @return bool|void
      */
-    public function staticsCleanup(CommandEvent $event)
+    public function staticsCleanup(Event $event)
     {
         foreach ($this->getStaticPackages() as $package) {
             foreach ($this->getStaticMaps($package->getName()) as $mappingDir => $mappings) {
-                $mappingDirs    = explode('/', $mappingDir);
-                $packageRootDir = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDirs[0]);
-                $themeRootDir   = sprintf('%s/%s/skin/frontend/%s', getcwd(), $this->mageDir, $mappingDir);
+                $themeRootDir = $this->getRootThemeDir($mappingDir);
 
                 if (!is_dir($themeRootDir)) {
                     continue;
@@ -305,11 +304,11 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 array_multisort($strLengths, SORT_DESC, $contents);
 
                 // Exception error message
-                $errorMsg = sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $packageRootDir);
+                $errorMsg = sprintf("<error>Failed to remove %s from %s</error>", $package->getName(), $themeRootDir);
 
                 foreach ($contents as $content) {
                     // Remove packages symlinked files/dirs
-                    if (is_link($content) && strpos($content, $mappingDir) !== false) {
+                    if (is_link($content) && strpos($content, $mappingDir . '/web/assets') !== false) {
                         $this->tryCleanup($content, $errorMsg);
                         continue;
                     }
@@ -318,11 +317,6 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                     if (is_dir($content) && $this->filesystem->isDirEmpty($content)) {
                         $this->tryCleanup($content, $errorMsg);
                     }
-                }
-
-                // Check if we need to remove package dir
-                if (is_dir($packageRootDir) && $this->filesystem->isDirEmpty($packageRootDir)) {
-                    $this->tryCleanup(rtrim($packageRootDir, "/"), $errorMsg);
                 }
             }
         }
@@ -348,6 +342,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      */
     private function getFullDirectoryListing($path)
     {
+        // TODO: RecursiveDirectoryIterator::SKIP_DOTS ?
         $listings   = new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($path));
         $listingArr = array_keys(\iterator_to_array($listings));
 
@@ -363,7 +358,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      * Returns the relative path from $from to $to
      *
      * This is utility method for symlink creation.
-     * Orig Source: http://stackoverflow.com/a/2638272/485589
+     * @see http://stackoverflow.com/a/2638272/485589
      *
      * @param string $from
      * @param string $to
@@ -401,5 +396,19 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             }
         }
         return implode('/', $relPath);
+    }
+
+    /**
+     * @param $mappingDir
+     * @return string
+     */
+    private function getRootThemeDir($mappingDir)
+    {
+        return sprintf(
+            '%s%s/app/design/frontend/%s/web/assets',
+            getcwd(),
+            $this->mageDir ? '/' . $this->mageDir : '',
+            $mappingDir
+        );
     }
 }
