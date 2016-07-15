@@ -405,7 +405,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     private function getRootThemeDir($mappingDir)
     {
         return sprintf(
-            '%s%s/app/design/frontend/%s/web/assets',
+            '%s%s/app/design/frontend/%s/web',
             getcwd(),
             $this->mageDir ? '/' . $this->mageDir : '',
             $mappingDir
