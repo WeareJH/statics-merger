@@ -8,7 +8,6 @@ use Composer\Package\RootPackage;
 use Composer\Repository\RepositoryManager;
 use Composer\Repository\WritableArrayRepository;
 use Composer\Script\Event;
-use Composer\Util\Filesystem;
 use Jh\StaticsMerger\StaticsMergerPlugin;
 use Composer\Test\TestCase;
 use Composer\Composer;
@@ -48,7 +47,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ),
         ));
 
-        $this->io               = $this->getMock('Composer\IO\IOInterface');
+        $this->io               = static::createMock('Composer\IO\IOInterface');
         $this->repoManager      = new RepositoryManager($this->io, $this->config);
         $this->localRepository  = new WritableArrayRepository();
         $this->composer->setRepositoryManager($this->repoManager);
@@ -387,14 +386,30 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images");
-        $this->assertTrue(is_dir("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images"));
-        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image1.jpg");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image2.jpg");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image1.jpg"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image2.jpg"));
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/picture1.jpg");
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images"
+        );
+        $this->assertTrue(
+            is_dir("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images")
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image1.jpg"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image2.jpg"
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image1.jpg")
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/image2.jpg")
+        );
+        $this->assertFileNotExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/package/theme/web/images/picture1.jpg"
+        );
     }
 
     public function testStandardFilesAreAllCorrectlySymLinked()
