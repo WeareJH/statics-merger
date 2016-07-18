@@ -280,7 +280,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
                 foreach ($contents as $content) {
                     // Remove packages symlinked files/dirs
-                    if (is_link($content) && strpos($content, $mappingDir . '/web/assets') !== false) {
+                    if (is_link($content)) {
                         $this->tryCleanup($content, $errorMsg);
                         continue;
                     }
@@ -365,7 +365,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             '%s%s/app/design/frontend/%s/web',
             getcwd(),
             $this->mageDir ? '/' . $this->mageDir : '',
-            $mappingDir
+            ucwords($mappingDir)
         );
     }
 }
