@@ -12,9 +12,16 @@ The plugin hooks onto two composer commands ```install``` and ```update``` in wh
 
 This module is installable via ```Composer```. If you have used the Magento Skeleton as a base module then you can just require this project and all the rest is done for you.
 
+### Magento 1
 ```sh
 $ cd project-root
-$ ./composer.phar require "wearejh/statics-merger"
+$ ./composer.phar require "wearejh/statics-merger:^2.0.0"
+```
+
+### Magento 2 
+```sh
+$ cd project-root
+$ ./composer.phar require "wearejh/statics-merger:^3.0.0"
 ```
 
 ### Upgrading 1.x to 2.x ?
