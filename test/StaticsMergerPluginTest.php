@@ -7,8 +7,7 @@ use Composer\Package\PackageInterface;
 use Composer\Package\RootPackage;
 use Composer\Repository\RepositoryManager;
 use Composer\Repository\WritableArrayRepository;
-use Composer\Script\CommandEvent;
-use Composer\Util\Filesystem;
+use Composer\Script\Event;
 use Jh\StaticsMerger\StaticsMergerPlugin;
 use Composer\Test\TestCase;
 use Composer\Composer;
@@ -48,7 +47,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ),
         ));
 
-        $this->io               = $this->getMock('Composer\IO\IOInterface');
+        $this->io               = static::createMock('Composer\IO\IOInterface');
         $this->repoManager      = new RepositoryManager($this->io, $this->config);
         $this->localRepository  = new WritableArrayRepository();
         $this->composer->setRepositoryManager($this->repoManager);
@@ -313,7 +312,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->io
             ->expects($this->once())
             ->method('write')
-            ->with('<info>Magento root dir not defined</info>');
+            ->with('<info>Magento root dir not defined, assumed current working directory</info>');
 
         $this->activatePlugin();
     }
@@ -321,14 +320,14 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
     public function testSymLinkStaticsCorrectlySymLinksStaticFiles()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->localRepository->addPackage($this->createStaticPackage());
 
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
     }
 
     public function testFileGlobAreAllCorrectlySymLinkedToRoot()
@@ -354,25 +353,25 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
         $this->composer->getPackage()->setExtra($rootPackageExtra);
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
         // Favicons linked from root
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon1");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon3");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon1"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/favicon2"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/favicon1");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/favicon2");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/favicon3");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/favicon1"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/favicon2"));
 
         // Images linked from image dir
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image1.jpg");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image2.jpg");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image1.jpg"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image2.jpg"));
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/picture1.jpg");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image1.jpg");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image2.jpg");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image1.jpg"));
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image2.jpg"));
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/picture1.jpg");
     }
 
     public function testFileGlobAreAllCorrectlySymLinkedWithSetDest()
@@ -383,18 +382,34 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->addGlobsWithDest($package);
         $this->localRepository->addPackage($package);
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images");
-        $this->assertTrue(is_dir("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images"));
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image1.jpg");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image2.jpg");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image1.jpg"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/image2.jpg"));
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/picture1.jpg");
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images"
+        );
+        $this->assertTrue(
+            is_dir("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images")
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/image1.jpg"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/image2.jpg"
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/image1.jpg")
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/image2.jpg")
+        );
+        $this->assertFileNotExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/picture1.jpg"
+        );
     }
 
     public function testStandardFilesAreAllCorrectlySymLinked()
@@ -404,18 +419,18 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             $this->createStaticPackage('some/static', 'package/theme', array(), true, false, true)
         );
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog"));
         $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image1.jpg")
+            file_exists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog/image1.jpg")
         );
         $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image2.jpg")
+            file_exists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog/image2.jpg")
         );
     }
 
@@ -427,26 +442,26 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
         $packageLocation = $this->projectRoot . "/vendor/" . $package->getName();
         mkdir($packageLocation . '/assets/testdir');
-        mkdir("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/", 0777, true);
+        mkdir("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/", 0777, true);
 
         symlink(
             $packageLocation . '/assets/testdir',
-            "{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog"
         );
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog"));
         $this->assertEquals(
             $packageLocation . '/assets/testdir',
-            readLink("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog")
+            readLink("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog")
         );
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog"));
     }
 
     public function testFilesAndFolderErrorWithoutDestinationSet()
@@ -465,27 +480,27 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ->method('write')
             ->with($message);
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image1.jpg");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image2.jpg");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/image3.jpg");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image1.jpg");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image2.jpg");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/image3.jpg");
     }
 
     public function testAssetSymLinkFailsIfAlreadyExistButNotSymLink()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
 
-        mkdir("{$this->projectRoot}/htdocs/skin/frontend/package/theme", 0777, true);
-        touch("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets");
+        mkdir("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web", 0777, true);
+        touch("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets");
 
-        $errorMsg = '<error>Your static path: "%s/htdocs/skin/frontend/package/theme/assets" ';
+        $errorMsg = '<error>Your static path: "%s/htdocs/app/design/frontend/Package/theme/web/assets" ';
         $errorMsg .= 'is currently not a symlink, please remove first </error>';
         $message = sprintf($errorMsg, $this->projectRoot);
 
@@ -496,13 +511,13 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
-        $this->assertTrue(is_file("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertTrue(is_file("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
     }
 
     public function testErrorIsReportedIfStaticPackageMissingSpecifiedSource()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage(
             $this->createStaticPackage('some/static', 'package/theme', array(), false)
@@ -535,7 +550,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ->expects($this->never())
             ->method('processSymlink');
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $staticPlugin->activate($this->composer, $this->io);
         $staticPlugin->symlinkStatics($event);
     }
@@ -566,7 +581,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ->method('write')
             ->with($message);
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
     }
@@ -599,7 +614,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $this->localRepository->addPackage($staticPackage);
 
         // Change perms to force symlink error
-        $themeDir = $this->projectRoot . '/htdocs/skin/frontend/package/theme';
+        $themeDir = $this->projectRoot . '/htdocs/app/design/frontend/Package/theme/web';
         mkdir($themeDir, 0755, true);
         chmod($themeDir, 0400);
 
@@ -610,7 +625,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ->method('write')
             ->with($this->stringContains($message));
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
@@ -623,32 +638,31 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
     public function testStaticsCleanupCorrectlyRemovesDirs()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
 
         $this->plugin->staticsCleanup($event);
 
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
     }
 
     public function testStaticsCleanupOutputOnException()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
 
         $filesystem = $this->getMockBuilder('Composer\Util\Filesystem')
             ->setMethods(array('remove'))
@@ -663,7 +677,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
             ->expects($this->once())
             ->method('write')
             ->with(sprintf(
-                "<error>Failed to remove some/static from %s/htdocs/skin/frontend/package</error>",
+                "<error>Failed to remove some/static from %s/htdocs/app/design/frontend/Package/theme/web</error>",
                 realpath(sys_get_temp_dir()) . "/static-merge-test"
             ));
 
@@ -674,49 +688,37 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
         $this->plugin->staticsCleanup($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
     }
 
     public function testStaticsCleanupOutputOnPackageRemovalException()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
-
         $filesystem = $this->getMockBuilder('Composer\Util\Filesystem')
             ->setMethods(array('removeDirectory'))
             ->getMock();
 
-        $themeDir = $themeDir = sprintf(
-            '%s/htdocs/skin/frontend/package/theme',
+        $themeDir = sprintf(
+            '%s/htdocs/app/design/frontend/Package/theme/web',
             $this->projectRoot
         );
 
         $filesystem
-            ->expects($this->exactly(2))
+            ->expects($this->once())
             ->method('removeDirectory')
-            ->will($this->onConsecutiveCalls(
-                $this->returnCallback(function () use ($themeDir) {
-                    $fileSys = new Filesystem();
-                    $fileSys->removeDirectory($themeDir);
-                }),
-                $this->throwException(new \RuntimeException())
-            ));
+            ->will($this->throwException(new \RuntimeException()));
 
         $this->io
             ->expects($this->once())
             ->method('write')
-            ->with(sprintf(
-                "<error>Failed to remove some/static from %s/htdocs/skin/frontend/package</error>",
-                realpath(sys_get_temp_dir()) . "/static-merge-test"
-            ));
+            ->with(sprintf('<error>Failed to remove some/static from %s</error>', $themeDir));
 
         $refObject   = new ReflectionObject($this->plugin);
         $refProperty = $refObject->getProperty('filesystem');
@@ -724,75 +726,70 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         $refProperty->setValue($this->plugin, $filesystem);
 
         $this->plugin->staticsCleanup($event);
-
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package");
     }
 
     public function testStaticCleanupWillNotRemoveNonMappedThemesFromPackage()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
 
         // Create a non mapped static theme
-        mkdir(sprintf('%s/htdocs/skin/frontend/package/nonMappedTheme', $this->projectRoot));
+        mkdir(sprintf('%s/htdocs/app/design/frontend/Package/theme2/web', $this->projectRoot), 0777, true);
 
         $this->plugin->staticsCleanup($event);
 
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/nonMappedTheme");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web");
     }
 
     public function testStaticCleanupWillNotRemoveNonMappedFilesFromTheme()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"));
 
         // Create a non mapped static theme
-        mkdir(sprintf('%s/htdocs/skin/frontend/package/theme/keepdir', $this->projectRoot));
-        touch(sprintf('%s/htdocs/skin/frontend/package/theme/keepdir/keepme.txt', $this->projectRoot));
-        touch(sprintf('%s/htdocs/skin/frontend/package/theme/keepme.txt', $this->projectRoot));
-        mkdir(sprintf('%s/htdocs/skin/frontend/package/theme/removeme/', $this->projectRoot));
+        mkdir(sprintf('%s/htdocs/app/design/frontend/Package/theme/web/keepdir', $this->projectRoot));
+        touch(sprintf('%s/htdocs/app/design/frontend/Package/theme/web/keepdir/keepme.txt', $this->projectRoot));
+        touch(sprintf('%s/htdocs/app/design/frontend/Package/theme/web/keepme.txt', $this->projectRoot));
+        mkdir(sprintf('%s/htdocs/app/design/frontend/Package/theme/web/removeme/', $this->projectRoot));
 
         $this->plugin->staticsCleanup($event);
 
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/keepdir");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/keepdir/keepme.txt");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/keepme.txt");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/removeme");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/keepdir");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/keepdir/keepme.txt");
+        $this->assertFileExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/keepme.txt");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/removeme");
     }
 
     public function testStaticsCleanupWorksWithNoFilesToClean()
     {
         $this->createRootPackage();
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
 
         $this->localRepository->addPackage($this->createStaticPackage());
         $this->activatePlugin();
 
         $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
 
         $this->plugin->staticsCleanup($event);
 
         $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package");
-        $this->assertFileNotExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
+        $this->assertFileNotExists("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web");
     }
 
     public function testGetStaticMapsWillReturnAll()
@@ -908,47 +905,77 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
 
         $this->composer->getPackage()->setExtra($rootPackageExtra);
 
-        $event = new CommandEvent('event', $this->composer, $this->io);
+        $event = new Event('event', $this->composer, $this->io);
         $this->activatePlugin();
         $this->plugin->symlinkStatics($event);
 
-        // package/theme
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/assets"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog"));
-        $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image1.jpg")
+        // Package/theme
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog"
         );
         $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme/images/catalog/image2.jpg")
-        );
-
-        // package/theme2
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme2");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme2/assets");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package/theme2/images/catalog");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme2/assets"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package/theme2/images/catalog"));
-        $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme2/images/catalog/image1.jpg")
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/assets")
         );
         $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package/theme2/images/catalog/image2.jpg")
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog")
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog/image1.jpg"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme/web/images/catalog/image2.jpg"
         );
 
-        // package2/theme
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/assets");
-        $this->assertFileExists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog");
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/assets"));
-        $this->assertTrue(is_link("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog"));
-        $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog/image1.jpg")
+        // Package/theme2
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/assets"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/assets/images/catalog"
         );
         $this->assertTrue(
-            file_exists("{$this->projectRoot}/htdocs/skin/frontend/package2/theme/images/catalog/image2.jpg")
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/assets")
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/images/catalog")
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/assets/images/catalog/image1.jpg"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package/theme2/web/assets/images/catalog/image2.jpg"
+        );
+
+        // Package2/theme
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web/assets"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web/images/catalog"
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web/assets")
+        );
+        $this->assertTrue(
+            is_link("{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web/images/catalog")
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web/images/catalog/image1.jpg"
+        );
+        $this->assertFileExists(
+            "{$this->projectRoot}/htdocs/app/design/frontend/Package2/theme/web/images/catalog/image2.jpg"
         );
     }
 
