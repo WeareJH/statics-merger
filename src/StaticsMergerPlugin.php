@@ -335,12 +335,12 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
     public function verifyEnvironment() : bool
     {
-        return is_executable((new ExecutableFinder)->find('yarn', false));
+        return is_executable($this->$this->getYarnExecutablePath());
     }
 
     private function getYarnExecutablePath() : string
     {
-        return (new ExecutableFinder)->find('yarn', false);
+        return (new ExecutableFinder)->find('yarn', '');
     }
 
     /**
