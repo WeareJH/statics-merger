@@ -1,4 +1,5 @@
 <?php
+declare(strict_types = 1);
 
 namespace Jh\StaticsMerger;
 
@@ -7,10 +8,13 @@ use Composer\EventDispatcher\EventSubscriberInterface;
 use Composer\IO\IOInterface;
 use Composer\Plugin\PluginInterface;
 use Composer\Script\ScriptEvents;
-use Composer\Script\Event;
 use Composer\Util\Filesystem;
 use Composer\Package\PackageInterface;
-use Composer\Package\Package;
+use Symfony\Component\Process\Exception\LogicException;
+use Symfony\Component\Process\Exception\ProcessFailedException;
+use Symfony\Component\Process\Exception\RuntimeException;
+use Symfony\Component\Process\ExecutableFinder;
+use Symfony\Component\Process\Process;
 
 /**
  * Composer Plugin for merging static assets with the Jh Magento Skeleton
@@ -103,21 +107,77 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     {
         return [
             ScriptEvents::PRE_INSTALL_CMD => [
+                ['verifyEnvironment', 1],
                 ['staticsCleanup', 0]
             ],
             ScriptEvents::PRE_UPDATE_CMD => [
+                ['verifyEnvironment', 1],
                 ['staticsCleanup', 0]
             ],
             ScriptEvents::POST_INSTALL_CMD => [
+                ['staticsCompile', 0],
                 ['symlinkStatics', 0]
             ],
             ScriptEvents::POST_UPDATE_CMD => [
+                ['staticsCompile', 0],
                 ['symlinkStatics', 0]
             ]
         ];
     }
 
-    public function symlinkStatics(Event $event)
+    public function verifyEnvironment() : bool
+    {
+        return is_executable($this->getYarnExecutablePath());
+    }
+
+    private function getYarnExecutablePath() : string
+    {
+        return (new ExecutableFinder)->find('yarn', '');
+    }
+
+    /**
+     * @throws \RuntimeException When Yarn install fails or crossbow fails
+     * @throws LogicException From process
+     * @throws RuntimeException From process
+     */
+    public function staticsCompile()
+    {
+        foreach ($this->getStaticPackages() as $package) {
+            $cwd = getcwd();
+
+            chdir($this->getInstallPath($package));
+
+            $this->io->write(sprintf('<info>Installing dependencies for "%s"', $package->getPrettyName()));
+            $dependencyProcess = new Process($this->getYarnExecutablePath());
+
+            try {
+                $dependencyProcess->mustRun();
+            } catch (ProcessFailedException $e) {
+                $this->io->write($dependencyProcess->getOutput());
+                $this->io->write(
+                    sprintf('<error>Failed to install dependencies for "%s" </error>', $package->getPrettyName())
+                );
+                return false;
+            }
+
+            $this->io->write(sprintf('<info>Building statics assets for "%s"', $package->getPrettyName()));
+            $buildProcess = new Process('node_modules/.bin/cb release');
+
+            try {
+                $buildProcess->mustRun();
+            } catch (ProcessFailedException $e) {
+                $this->io->write($buildProcess->getOutput());
+                $this->io->write(
+                    sprintf('<error>Static package "%s" failed to build </error>', $package->getPrettyName())
+                );
+                return false;
+            }
+
+            chdir($cwd);
+        }
+    }
+
+    public function symlinkStatics()
     {
         foreach ($this->getStaticPackages() as $package) {
             $packageSource = $this->getInstallPath($package);
@@ -260,7 +320,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     /**
      * Isolated event that runs on PRE hooks to cleanup mapped packages
      */
-    public function staticsCleanup(Event $event)
+    public function staticsCleanup()
     {
         foreach ($this->getStaticPackages() as $package) {
             foreach ($this->getStaticMaps($package->getName()) as $mappingDir => $mappings) {
@@ -330,7 +390,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     {
         // some compatibility fixes for Windows paths
         $from = is_dir($from) ? rtrim($from, '\/') . '/' : $from;
-        $to   = is_dir($to)   ? rtrim($to, '\/') . '/'   : $to;
+        $to   = is_dir($to) ? rtrim($to, '\/') . '/' : $to;
         $from = str_replace('\\', '/', $from);
         $to   = str_replace('\\', '/', $to);
 
