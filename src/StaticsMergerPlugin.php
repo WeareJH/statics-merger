@@ -122,6 +122,16 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         ];
     }
 
+    public function verifyEnvironment() : bool
+    {
+        return is_executable($this->$this->getYarnExecutablePath());
+    }
+
+    private function getYarnExecutablePath() : string
+    {
+        return (new ExecutableFinder)->find('yarn', '');
+    }
+
     /**
      * @throws \RuntimeException When Yarn install fails or crossbow fails
      * @throws LogicException From process
@@ -135,21 +145,25 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             chdir($this->getInstallPath($package));
 
             $exitCode = (new Process($this->getYarnExecutablePath()))->run(function ($type, $buffer) {
-                $this->io->write($buffer);
+                $this->io->write($buffer, false);
             });
 
             if (0 !== $exitCode) {
-                throw new \RuntimeException(
-                    sprintf('Failed to install dependencies for "%s"', $package->getPrettyName())
+                $this->io->write(
+                    sprintf('<error>Failed to install dependencies for "%s" </error>', $package->getPrettyName())
                 );
+                return false;
             }
 
             $exitCode = (new Process('node_modules/.bin/cb release'))->run(function ($type, $buffer) {
-                $this->io->write($buffer);
+                $this->io->write($buffer, false);
             });
 
             if (0 !== $exitCode) {
-                throw new \RuntimeException(sprintf('Static package "%s" failed to build', $package->getPrettyName()));
+                $this->io->write(
+                    sprintf('<error>Static package "%s" failed to build </error>', $package->getPrettyName())
+                );
+                return false;
             }
 
             chdir($cwd);
@@ -331,16 +345,6 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 }
             }
         }
-    }
-
-    public function verifyEnvironment() : bool
-    {
-        return is_executable($this->$this->getYarnExecutablePath());
-    }
-
-    private function getYarnExecutablePath() : string
-    {
-        return (new ExecutableFinder)->find('yarn', '');
     }
 
     /**
