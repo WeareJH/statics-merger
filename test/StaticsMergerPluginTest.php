@@ -10,10 +10,11 @@ use Composer\Repository\RepositoryManager;
 use Composer\Repository\WritableArrayRepository;
 use Composer\Script\Event;
 use Jh\StaticsMerger\StaticsMergerPlugin;
-use Composer\Test\TestCase;
 use Composer\Composer;
 use Composer\Config;
 use Composer\Script\ScriptEvents;
+use PHPUnit\Framework\Error\Warning;
+use PHPUnit\Framework\TestCase;
 use ReflectionObject;
 
 /**
@@ -21,7 +22,7 @@ use ReflectionObject;
  *
  * @author Aydin Hassan <aydin@hotmail.co.uk>
  */
-class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
+class StaticsMergerPluginTest extends TestCase
 {
     protected $plugin;
     protected $composer;
@@ -591,15 +592,19 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
     {
         $this->assertSame(array(
             ScriptEvents::PRE_INSTALL_CMD => array(
+                array('verifyEnvironment', 1),
                 array('staticsCleanup', 0)
             ),
             ScriptEvents::PRE_UPDATE_CMD => array(
+                array('verifyEnvironment', 1),
                 array('staticsCleanup', 0)
             ),
             ScriptEvents::POST_INSTALL_CMD => array(
+                array('staticsCompile', 1),
                 array('symlinkStatics', 0)
             ),
             ScriptEvents::POST_UPDATE_CMD => array(
+                array('staticsCompile', 1),
                 array('symlinkStatics', 0)
             )
         ), $this->plugin->getSubscribedEvents());
@@ -608,7 +613,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
     public function testSymlinkFail()
     {
         // Prevent PHPUnit converting this error to an exception
-        \PHPUnit_Framework_Error_Warning::$enabled = false;
+        Warning::$enabled = false;
 
         $this->createRootPackage();
         $staticPackage = $this->createStaticPackage();
@@ -633,7 +638,7 @@ class StaticsMergerPluginTest extends \PHPUnit_Framework_TestCase
         chmod($themeDir, 0755);
 
         // Turn exception converting back on
-        \PHPUnit_Framework_Error_Warning::$enabled = true;
+        Warning::$enabled = true;
     }
 
     public function testStaticsCleanupCorrectlyRemovesDirs()
