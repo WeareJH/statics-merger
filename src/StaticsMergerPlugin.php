@@ -154,6 +154,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 $dependencyProcess->mustRun();
             } catch (ProcessFailedException $e) {
                 $this->io->write($dependencyProcess->getOutput());
+                $this->io->write($dependencyProcess->getErrorOutput());
                 $this->io->write(
                     sprintf('<error>Failed to install dependencies for "%s" </error>', $package->getPrettyName())
                 );
@@ -167,6 +168,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 $buildProcess->mustRun();
             } catch (ProcessFailedException $e) {
                 $this->io->write($buildProcess->getOutput());
+                $this->io->write($buildProcess->getErrorOutput());
                 $this->io->write(
                     sprintf('<error>Static package "%s" failed to build </error>', $package->getPrettyName())
                 );
