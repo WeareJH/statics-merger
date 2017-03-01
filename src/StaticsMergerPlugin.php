@@ -142,9 +142,9 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
      */
     public function staticsCompile()
     {
-        foreach ($this->getStaticPackages() as $package) {
-            $cwd = getcwd();
+        $cwd = getcwd();
 
+        foreach ($this->getStaticPackages() as $package) {
             chdir($this->getInstallPath($package));
 
             $this->io->write(sprintf('<info>Installing dependencies for "%s"', $package->getPrettyName()));
@@ -172,9 +172,9 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 );
                 return false;
             }
-
-            chdir($cwd);
         }
+
+        chdir($cwd);
     }
 
     public function symlinkStatics()
