@@ -111,6 +111,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 ['staticsCleanup', 0]
             ],
             ScriptEvents::PRE_UPDATE_CMD => [
+                ['verifyEnvironment', 1],
                 ['staticsCleanup', 0]
             ],
             ScriptEvents::POST_INSTALL_CMD => [
@@ -118,6 +119,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
                 ['symlinkStatics', 0]
             ],
             ScriptEvents::POST_UPDATE_CMD => [
+                ['staticsCompile', 0],
                 ['symlinkStatics', 0]
             ]
         ];
