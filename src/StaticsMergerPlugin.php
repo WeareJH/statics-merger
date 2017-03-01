@@ -11,6 +11,7 @@ use Composer\Script\ScriptEvents;
 use Composer\Util\Filesystem;
 use Composer\Package\PackageInterface;
 use Symfony\Component\Process\Exception\LogicException;
+use Symfony\Component\Process\Exception\ProcessFailedException;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -144,22 +145,26 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
             chdir($this->getInstallPath($package));
 
-            $exitCode = (new Process($this->getYarnExecutablePath()))->run(function ($type, $buffer) {
-                $this->io->write($buffer, false);
-            });
+            $this->io->write(sprintf('<info>Installing dependencies for "%s"', $package->getPrettyName()));
+            $dependencyProcess = new Process($this->getYarnExecutablePath());
 
-            if (0 !== $exitCode) {
+            try {
+                $dependencyProcess->mustRun();
+            } catch (ProcessFailedException $e) {
+                $this->io->write($dependencyProcess->getOutput());
                 $this->io->write(
                     sprintf('<error>Failed to install dependencies for "%s" </error>', $package->getPrettyName())
                 );
                 return false;
             }
 
-            $exitCode = (new Process('node_modules/.bin/cb release'))->run(function ($type, $buffer) {
-                $this->io->write($buffer, false);
-            });
+            $this->io->write(sprintf('<info>Building statics assets for "%s"', $package->getPrettyName()));
+            $buildProcess = new Process('node_modules/.bin/cb release');
 
-            if (0 !== $exitCode) {
+            try {
+                $buildProcess->mustRun();
+            } catch (ProcessFailedException $e) {
+                $this->io->write($buildProcess->getOutput());
                 $this->io->write(
                     sprintf('<error>Static package "%s" failed to build </error>', $package->getPrettyName())
                 );
