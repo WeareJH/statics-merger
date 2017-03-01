@@ -127,7 +127,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
     public function verifyEnvironment() : bool
     {
-        return is_executable($this->$this->getYarnExecutablePath());
+        return is_executable($this->getYarnExecutablePath());
     }
 
     private function getYarnExecutablePath() : string
