@@ -596,13 +596,15 @@ class StaticsMergerPluginTest extends TestCase
                 array('staticsCleanup', 0)
             ),
             ScriptEvents::PRE_UPDATE_CMD => array(
+                array('verifyEnvironment', 1),
                 array('staticsCleanup', 0)
             ),
             ScriptEvents::POST_INSTALL_CMD => array(
-                array('staticsCompile', 0),
+                array('staticsCompile', 1),
                 array('symlinkStatics', 0)
             ),
             ScriptEvents::POST_UPDATE_CMD => array(
+                array('staticsCompile', 1),
                 array('symlinkStatics', 0)
             )
         ), $this->plugin->getSubscribedEvents());
