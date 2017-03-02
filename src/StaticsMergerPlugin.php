@@ -125,9 +125,14 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         ];
     }
 
-    public function verifyEnvironment() : bool
+    /*
+     * @throws \RuntimeException When environment is invalid
+     */
+    public function verifyEnvironment()
     {
-        return is_executable($this->getYarnExecutablePath());
+        if (!is_executable($this->getYarnExecutablePath())) {
+            throw new \RuntimeException('Yarn is not installed or executable!');
+        }
     }
 
     private function getYarnExecutablePath() : string
@@ -148,10 +153,10 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             chdir($this->getInstallPath($package));
 
             $this->io->write(sprintf('<info>Installing dependencies for "%s"', $package->getPrettyName()));
-            $dependencyProcess = new Process($this->getYarnExecutablePath());
+            $dependencyProcess = new Process(sprintf('%s && npm rebuild node-sass', $this->getYarnExecutablePath()));
 
             try {
-                $dependencyProcess->mustRun();
+                $dependencyProcess->setTimeout(300)->mustRun();
             } catch (ProcessFailedException $e) {
                 $this->io->write($dependencyProcess->getOutput());
                 $this->io->write($dependencyProcess->getErrorOutput());
@@ -165,7 +170,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             $buildProcess = new Process('node_modules/.bin/cb release');
 
             try {
-                $buildProcess->mustRun();
+                $buildProcess->setTimeout(300)->mustRun();
             } catch (ProcessFailedException $e) {
                 $this->io->write($buildProcess->getOutput());
                 $this->io->write($buildProcess->getErrorOutput());
