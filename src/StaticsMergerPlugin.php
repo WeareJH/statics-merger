@@ -128,7 +128,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
     /*
      * @throws \RuntimeException When environment is invalid
      */
-    public function verifyEnvironment() : bool
+    public function verifyEnvironment()
     {
         if (!is_executable($this->getYarnExecutablePath())) {
             throw new \RuntimeException('Yarn is not installed or executable!');
