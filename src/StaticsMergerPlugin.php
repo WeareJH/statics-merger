@@ -127,7 +127,9 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
 
     public function verifyEnvironment() : bool
     {
-        return is_executable($this->getYarnExecutablePath());
+        if (!is_executable($this->getYarnExecutablePath())) {
+            throw new \RuntimeException('Yarn is not installed or executable!');
+        }
     }
 
     private function getYarnExecutablePath() : string
@@ -151,7 +153,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             $dependencyProcess = new Process($this->getYarnExecutablePath());
 
             try {
-                $dependencyProcess->mustRun();
+                $dependencyProcess->setTimeout(300)->mustRun();
             } catch (ProcessFailedException $e) {
                 $this->io->write($dependencyProcess->getOutput());
                 $this->io->write($dependencyProcess->getErrorOutput());
@@ -165,7 +167,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             $buildProcess = new Process('node_modules/.bin/cb release');
 
             try {
-                $buildProcess->mustRun();
+                $buildProcess->setTimeout(300)->mustRun();
             } catch (ProcessFailedException $e) {
                 $this->io->write($buildProcess->getOutput());
                 $this->io->write($buildProcess->getErrorOutput());
