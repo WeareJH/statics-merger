@@ -125,6 +125,9 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
         ];
     }
 
+    /*
+     * @throws \RuntimeException When environment is invalid
+     */
     public function verifyEnvironment() : bool
     {
         if (!is_executable($this->getYarnExecutablePath())) {
@@ -150,7 +153,7 @@ class StaticsMergerPlugin implements PluginInterface, EventSubscriberInterface
             chdir($this->getInstallPath($package));
 
             $this->io->write(sprintf('<info>Installing dependencies for "%s"', $package->getPrettyName()));
-            $dependencyProcess = new Process($this->getYarnExecutablePath());
+            $dependencyProcess = new Process(sprintf('%s && npm rebuild node-sass', $this->getYarnExecutablePath()));
 
             try {
                 $dependencyProcess->setTimeout(300)->mustRun();
